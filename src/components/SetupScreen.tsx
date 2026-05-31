@@ -80,7 +80,7 @@ export function SetupScreen() {
         />
       </div>
 
-      {schedule && (
+      {schedule ? (
         <section className="mb-4 rounded-xl bg-panel p-3">
           <div className="mb-1 flex items-center justify-between">
             <h2 className="text-xs uppercase tracking-wider text-muted">
@@ -96,6 +96,15 @@ export function SetupScreen() {
             </button>
           </div>
           <ScheduleList schedule={schedule} />
+        </section>
+      ) : (
+        <section className="mb-4 rounded-xl border border-dashed border-line p-5 text-center">
+          <p className="text-sm text-ink">No classes selected</p>
+          <p className="mt-1 text-xs text-muted">
+            {favourites.length > 0
+              ? "Tap your favourites below, or search the full list."
+              : "Search and tap classes to build your fleet. Star ★ any to save as favourites."}
+          </p>
         </section>
       )}
 

@@ -296,11 +296,16 @@ Shown on the setup screen and as a reference panel on the timer screen.
 | Start order | 1st, 2nd, 3rd… |
 | Class name(s) | e.g. Mirror (grouped if tied PY) |
 | PY | e.g. 1364 |
-| Start offset | e.g. 24:56 |
+| Start (from first gun) | e.g. `+0:00` for the first/slowest class, `+24:56` for the scratch **[v3]** |
 | Start clock time | e.g. 11:24:56 (after Start) **[v3]** |
 | Status | Upcoming / Starting / Started |
 
-- Sorted by start order (earliest first); scratch boat at the bottom with offset 00:00
+- Sorted by start order (earliest first); the slowest class starts first at `+0:00`, the
+  scratch boat starts **last** at the largest time so faster boats chase the fleet down.
+- **Display the time as elapsed-from-first-gun (`+mm:ss`, ascending), not the
+  behind-scratch offset.** [v3] The §2.2 offset is the *computation*; showing it directly in
+  the schedule inverts the apparent order (the first boat would show the biggest number),
+  which reads as "slowest starts last" and is wrong. `startFromFirstGun = maxOffset − offset`.
 
 ---
 

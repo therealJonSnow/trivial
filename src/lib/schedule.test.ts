@@ -82,6 +82,21 @@ describe("buildSchedule", () => {
     expect(scratch?.startFromFirstGunMs).toBe(s?.maxOffsetMs);
   });
 
+  it("start time from first gun ascends with order (slowest first, scratch chases last)", () => {
+    const s = buildSchedule(
+      [boat("RS800", 797), boat("Mirror", 1364), boat("Laser", 1100)],
+      60,
+    )!;
+    const times = s.starts.map((x) => x.startFromFirstGunMs);
+    // first start is the slowest at +0; each subsequent start is later
+    expect(times[0]).toBe(0);
+    for (let i = 1; i < times.length; i++) {
+      expect(times[i]!).toBeGreaterThan(times[i - 1]!);
+    }
+    // the last (largest) start time belongs to the scratch boat
+    expect(s.starts.at(-1)?.isScratch).toBe(true);
+  });
+
   it("computes finish as scratch start + duration (maxOffset + duration)", () => {
     const s = buildSchedule([boat("RS800", 797), boat("Mirror", 1364)], 60);
     expect(s?.finishFromFirstGunMs).toBe((s?.maxOffsetMs ?? 0) + 60 * 60_000);

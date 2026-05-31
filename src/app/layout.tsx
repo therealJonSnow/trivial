@@ -7,6 +7,13 @@ export const metadata: Metadata = {
   description: "Make pursuit trivial. A phone-friendly pursuit race start timer.",
   manifest: "/manifest.json",
   appleWebApp: { capable: true, title: "Trivial", statusBarStyle: "black-translucent" },
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {
