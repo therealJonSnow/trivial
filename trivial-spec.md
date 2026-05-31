@@ -1,16 +1,19 @@
 # Trivial — Product Specification
 ### *Make pursuit trivial.*
 
-**Version:** 3.0
+**Version:** 3.1
 **Last updated:** 2026-05-31
 **Author:** Solo developer / Claude Code agent sessions
 
-> **v3.0 changelog** — This revision folds in the decisions from the Stage 1 design
-> interview. Material changes from v2.0 are flagged inline with **[v3]**. The biggest
-> shifts: a configurable warning sequence before the first gun, a rolling master clock
-> with a defined finish, postponement-style pause, no class-list edits while running,
-> grouped identical-PY starts, and removal of the 20-class cap. See §10 for the full
-> decision record.
+> **v3.1 changelog** — Replaced the configurable "warning length" with a **start-sequence
+> toggle (5-3-1 / 3-2-1)**: the selected standard dinghy-racing sequence is itself the
+> lead-in to the first gun, and tapping Start begins it immediately. Flagged **[v3.1]**.
+>
+> **v3.0 changelog** — Folded in the decisions from the Stage 1 design interview. Material
+> changes from v2.0 are flagged inline with **[v3]**. The biggest shifts: a lead-in
+> sequence before the first gun, a rolling master clock with a defined finish,
+> postponement-style pause, no class-list edits while running, grouped identical-PY starts,
+> and removal of the 20-class cap. See §10 for the full decision record.
 
 ---
 
@@ -75,11 +78,13 @@ Where:
 
 The race runs on a single **wall-clock-anchored** master timeline. There are two phases:
 
-**Warning phase** — begins the instant the RO taps **Start Race**.
-- A countdown runs to the **first gun** (the earliest / slowest class).
-- Length is **configurable, default 5:00**.
-- This phase — and only this phase — shows the standard sailing **5:00 / 3:00 / 1:00 / GO**
-  milestone emphasis.
+**Start-sequence phase** — begins the instant the RO taps **Start Race** (no separate
+configurable "warning"; the sequence *is* the lead-in). **[v3.1]**
+- The RO picks one of the two standard dinghy-racing start sequences via a toggle on setup:
+  - **5-3-1** — 5-minute lead-in, signals at **5:00 / 3:00 / 1:00 / GO**
+  - **3-2-1** — 3-minute lead-in, signals at **3:00 / 2:00 / 1:00 / GO**
+- The countdown runs to the **first gun** (the earliest / slowest class), with the selected
+  sequence's milestones emphasised. This phase — and only this phase — shows milestones.
 
 **Race phase** — begins at the first gun (master-time `T = 0`).
 - The primary display is a **plain visual countdown to the next class's start**.
@@ -243,7 +248,7 @@ Works offline. Operable in under one minute.
 ### Acceptance criteria
 - [ ] RO can select classes, set duration, and reach the timer screen in under 5 taps
 - [ ] Start offsets are calculated correctly per §2.2 (unit-tested, incl. the 24:56 example)
-- [ ] Warning phase counts to the first gun with 5:00/3:00/1:00/GO emphasis (configurable length)
+- [ ] Start sequence (5-3-1 or 3-2-1, toggle) counts to the first gun with its milestone emphasis
 - [ ] Race phase shows the next-start countdown + a small master race clock without manual scrolling
 - [ ] Identical-PY classes are grouped into a single start
 - [ ] Pause (postponement), Resume, Reset (re-arm to warning start, paused), and Stop all function
@@ -251,7 +256,7 @@ Works offline. Operable in under one minute.
 - [ ] App works fully offline after first load
 - [ ] Screen does not sleep during an active timer session (Wake Lock)
 - [ ] Favourites persist across sessions via LocalStorage
-- [ ] Last race config (duration + warning length + selected classes) is restored on next visit
+- [ ] Last race config (duration + start sequence + selected classes) is restored on next visit
 
 ---
 
@@ -268,7 +273,7 @@ Works offline. Operable in under one minute.
 **Screen flow:**
 1. App opens → shows last race config (or empty state on first use)
 2. RO adjusts selected classes (favourites listed first, pre-selected)
-3. RO confirms/adjusts race **duration** and **warning length** (pre-filled from last session)
+3. RO confirms/adjusts race **duration** and **start sequence** (5-3-1 / 3-2-1) (pre-filled from last session)
 4. RO taps **Start Race** → timer screen
 
 **Class selection:**
@@ -280,7 +285,9 @@ Works offline. Operable in under one minute.
 
 **Inputs** **[v3]** — large +/− steppers, no keyboard:
 - **Race duration** — minutes, default 60 (first use), pre-filled from LocalStorage
-- **Warning length** — default 5:00, configurable
+- **Start sequence** — segmented toggle between **5-3-1** and **3-2-1** (default 5-3-1).
+  Determines the lead-in length (5 or 3 min) and the milestone signals. There is no
+  separate "warning minutes" control. **[v3.1]**
 
 **Editability:** the class list is editable freely **before** Start. Once running it is
 **frozen** until Stop. **[v3]**
@@ -315,7 +322,7 @@ Shown on the setup screen and as a reference panel on the timer screen.
 - Large countdown to the next class start (mm:ss)
 - Class name(s) of the next start
 - **GO** flash/highlight when a class is starting
-- Warning phase only: 5:00 / 3:00 / 1:00 / GO milestone emphasis
+- Start-sequence phase only: the selected sequence's milestone emphasis (5/3/1 or 3/2/1)
 
 **Secondary displays:**
 - Small persistent **master race clock** (elapsed + time-to-finish) **[v3]**
@@ -475,7 +482,7 @@ and reviewed by the developer.
 
 | # | Decision |
 |---|---|
-| 1 | Warning sequence before first gun; configurable, default 5:00; 5/3/1/GO emphasis only in this phase |
+| 1 | Start-sequence toggle (5-3-1 / 3-2-1) is the lead-in to the first gun; its milestones show only in this phase. Tapping Start begins it immediately; no separate configurable warning. **[v3.1]** |
 | 2 | Race phase = plain countdown to next gun; brief GO flash per class; RO sounds horn once |
 | 3 | Clock is wall-clock anchored (Date.now() + start timestamp + accumulated pause); offsets in ms |
 | 4 | Pause = postponement (shift all remaining starts + finish) |

@@ -5,6 +5,7 @@ import {
   pauseClock,
   resumeClock,
   type RaceClock,
+  type StartSequence,
 } from "@/lib/timer";
 
 /** Favourites — persisted under `trivial.favourites`. */
@@ -38,14 +39,14 @@ interface RaceState {
   // persisted config
   selectedIds: number[];
   durationMinutes: number;
-  warningMinutes: number;
+  startSequence: StartSequence;
   // ephemeral
   clock: RaceClock | null;
   // config actions
   toggleSelected: (id: number) => void;
   setSelected: (ids: number[]) => void;
   setDuration: (minutes: number) => void;
-  setWarning: (minutes: number) => void;
+  setStartSequence: (sequence: StartSequence) => void;
   // race actions
   start: () => void;
   pause: () => void;
@@ -56,8 +57,6 @@ interface RaceState {
 
 const MIN_DURATION = 5;
 const MAX_DURATION = 240;
-const MIN_WARNING = 1;
-const MAX_WARNING = 15;
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
 export const useRace = create<RaceState>()(
@@ -65,7 +64,7 @@ export const useRace = create<RaceState>()(
     (set, get) => ({
       selectedIds: [],
       durationMinutes: 60,
-      warningMinutes: 5,
+      startSequence: "5-3-1",
       clock: null,
 
       toggleSelected: (id) =>
@@ -77,12 +76,12 @@ export const useRace = create<RaceState>()(
       setSelected: (ids) => set({ selectedIds: ids }),
       setDuration: (minutes) =>
         set({ durationMinutes: clamp(Math.round(minutes), MIN_DURATION, MAX_DURATION) }),
-      setWarning: (minutes) =>
-        set({ warningMinutes: clamp(Math.round(minutes), MIN_WARNING, MAX_WARNING) }),
+      setStartSequence: (sequence) => set({ startSequence: sequence }),
 
+      // Tapping Start immediately begins the selected start sequence.
       start: () => {
         if (get().selectedIds.length === 0) return;
-        set({ clock: armClock(Date.now(), get().warningMinutes * 60_000) });
+        set({ clock: armClock(Date.now(), get().startSequence) });
       },
       pause: () => {
         const c = get().clock;
@@ -92,10 +91,10 @@ export const useRace = create<RaceState>()(
         const c = get().clock;
         if (c) set({ clock: resumeClock(c, Date.now()) });
       },
-      // Re-arm to the start of the warning, paused, awaiting a fresh resume.
+      // Re-arm to the start of the sequence, paused, awaiting a fresh resume.
       reset: () => {
         const now = Date.now();
-        set({ clock: pauseClock(armClock(now, get().warningMinutes * 60_000), now) });
+        set({ clock: pauseClock(armClock(now, get().startSequence), now) });
       },
       stop: () => set({ clock: null }),
     }),
@@ -104,7 +103,7 @@ export const useRace = create<RaceState>()(
       partialize: (s) => ({
         selectedIds: s.selectedIds,
         durationMinutes: s.durationMinutes,
-        warningMinutes: s.warningMinutes,
+        startSequence: s.startSequence,
       }),
     },
   ),

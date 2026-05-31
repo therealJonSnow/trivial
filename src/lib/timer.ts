@@ -3,8 +3,21 @@ import type { Schedule, ScheduledStart } from "./types";
 /** How long a GO flash holds before retargeting (unless the next gun is sooner). */
 export const GO_HOLD_MS = 5_000;
 
-/** Warning milestones (ms before first gun) that get special emphasis. */
-export const WARNING_MILESTONES_MS = [5 * 60_000, 3 * 60_000, 60_000, 0] as const;
+/**
+ * The two standard dinghy-racing start countdown sequences. The selected
+ * sequence IS the lead-in to the first gun — there is no separate warning.
+ *   "5-3-1": 5-minute sequence, signals at 5:00 / 3:00 / 1:00 / GO
+ *   "3-2-1": 3-minute sequence, signals at 3:00 / 2:00 / 1:00 / GO
+ */
+export type StartSequence = "5-3-1" | "3-2-1";
+
+export const SEQUENCES: Record<
+  StartSequence,
+  { warningMs: number; milestonesMs: readonly number[] }
+> = {
+  "5-3-1": { warningMs: 5 * 60_000, milestonesMs: [5 * 60_000, 3 * 60_000, 60_000, 0] },
+  "3-2-1": { warningMs: 3 * 60_000, milestonesMs: [3 * 60_000, 2 * 60_000, 60_000, 0] },
+};
 
 export type Phase = "warning" | "race" | "finished";
 
@@ -13,9 +26,11 @@ export type Phase = "warning" | "race" | "finished";
  * `Date.now()` against these anchors — never from accumulated interval ticks.
  */
 export interface RaceClock {
-  /** Epoch ms when Start was tapped (warning phase begins). */
+  /** Epoch ms when Start was tapped (the start sequence begins immediately). */
   startedAtEpoch: number;
-  /** Configured warning length, ms (first gun = start + warning, shifted by pauses). */
+  /** Selected start sequence. */
+  sequence: StartSequence;
+  /** Sequence lead-in length, ms (first gun = start + warning, shifted by pauses). */
   warningMs: number;
   /** Total paused duration already absorbed, ms (postponement model). */
   accumulatedPauseMs: number;
@@ -83,10 +98,10 @@ export function deriveTimer(
         ? nextStart.startFromFirstGunMs - msSinceFirstGun
         : schedule.finishFromFirstGunMs - msSinceFirstGun;
 
-  // Warning milestone emphasis: the smallest milestone we've passed, if recent.
+  // Warning milestone emphasis: the current signal segment for this sequence.
   let activeMilestoneMs: number | null = null;
   if (phase === "warning") {
-    for (const m of WARNING_MILESTONES_MS) {
+    for (const m of SEQUENCES[clock.sequence].milestonesMs) {
       if (countdownMs <= m) activeMilestoneMs = m;
     }
   }
@@ -136,11 +151,12 @@ export function resumeClock(clock: RaceClock, now: number): RaceClock {
   };
 }
 
-/** A fresh clock armed at `now` with the given warning length. */
-export function armClock(now: number, warningMs: number): RaceClock {
+/** A fresh clock armed at `now` for the given start sequence. */
+export function armClock(now: number, sequence: StartSequence): RaceClock {
   return {
     startedAtEpoch: now,
-    warningMs,
+    sequence,
+    warningMs: SEQUENCES[sequence].warningMs,
     accumulatedPauseMs: 0,
     pausedAtEpoch: null,
   };

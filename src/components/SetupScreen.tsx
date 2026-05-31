@@ -19,11 +19,11 @@ export function SetupScreen() {
   const {
     selectedIds,
     durationMinutes,
-    warningMinutes,
+    startSequence,
     toggleSelected,
     setSelected,
     setDuration,
-    setWarning,
+    setStartSequence,
     start,
   } = useRace();
 
@@ -71,13 +71,32 @@ export function SetupScreen() {
           step={5}
           onChange={setDuration}
         />
-        <Stepper
-          label="Warning"
-          value={warningMinutes}
-          unit="min"
-          step={1}
-          onChange={setWarning}
-        />
+        <div className="flex flex-col justify-between rounded-xl bg-panel px-3 py-2">
+          <div className="text-xs uppercase tracking-wider text-muted">Start sequence</div>
+          <div
+            role="radiogroup"
+            aria-label="Start sequence"
+            className="mt-1 flex gap-1 rounded-lg bg-line p-1"
+          >
+            {(["5-3-1", "3-2-1"] as const).map((seq) => {
+              const active = startSequence === seq;
+              return (
+                <button
+                  key={seq}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => setStartSequence(seq)}
+                  className={`h-9 flex-1 rounded-md font-mono text-sm font-bold tabular-nums ${
+                    active ? "bg-imminent text-ground" : "text-muted"
+                  }`}
+                >
+                  {seq}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {schedule ? (

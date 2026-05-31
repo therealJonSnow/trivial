@@ -14,11 +14,9 @@ import { HoldButton } from "./HoldButton";
 const IMMINENT_MS = 10_000;
 
 function milestoneLabel(ms: number | null): string | null {
-  if (ms === null) return null;
-  if (ms === 5 * 60_000) return "5 MINUTES";
-  if (ms === 3 * 60_000) return "3 MINUTES";
-  if (ms === 60_000) return "1 MINUTE";
-  return null;
+  if (ms === null || ms <= 0) return null;
+  const minutes = Math.round(ms / 60_000);
+  return `${minutes} MINUTE${minutes === 1 ? "" : "S"}`;
 }
 
 export function TimerScreen() {
@@ -64,7 +62,7 @@ export function TimerScreen() {
           {paused
             ? "Postponed"
             : isWarning
-              ? "Warning"
+              ? `${clock.sequence} sequence`
               : isFinished
                 ? "Finished"
                 : "Racing"}

@@ -25,14 +25,26 @@ function boat(name: string, py: number): BoatClass {
 }
 
 const schedule = buildSchedule([boat("RS800", 797), boat("Mirror", 1364)], 60)!;
-const WARN = 5 * 60_000;
+const WARN = 5 * 60_000; // 5-3-1 sequence lead-in
 const GUN = 1_000_000; // arbitrary epoch for the first gun
 // startedAt so that firstGunEpoch === GUN
-const clock = armClock(GUN - WARN, WARN);
+const clock = armClock(GUN - WARN, "5-3-1");
 
 describe("phase detection", () => {
-  it("firstGunEpoch accounts for warning + postponement", () => {
+  it("firstGunEpoch accounts for the sequence lead-in + postponement", () => {
     expect(firstGunEpoch(clock)).toBe(GUN);
+  });
+
+  it("3-2-1 sequence is a 3-minute lead-in with 3/2/1 milestones", () => {
+    const c = armClock(0, "3-2-1");
+    expect(c.warningMs).toBe(3 * 60_000);
+    // 2:30 into the lead-in → past the 3-min signal, before the 2-min signal
+    const v = deriveTimer(c, schedule, 30_000);
+    expect(v.phase).toBe("warning");
+    expect(v.activeMilestoneMs).toBe(3 * 60_000);
+    // 1:30 to go → 2-min signal segment
+    const v2 = deriveTimer(c, schedule, 90_000);
+    expect(v2.activeMilestoneMs).toBe(2 * 60_000);
   });
 
   it("is in the warning phase before the first gun", () => {
