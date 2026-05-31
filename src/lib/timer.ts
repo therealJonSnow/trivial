@@ -6,16 +6,16 @@ export const GO_HOLD_MS = 5_000;
 /**
  * The two standard dinghy-racing start countdown sequences. The selected
  * sequence IS the lead-in to the first gun — there is no separate warning.
- *   "5-3-1": 5-minute sequence, signals at 5:00 / 3:00 / 1:00 / GO
+ *   "5-4-1": 5-minute sequence, signals at 5:00 / 4:00 / 1:00 / GO
  *   "3-2-1": 3-minute sequence, signals at 3:00 / 2:00 / 1:00 / GO
  */
-export type StartSequence = "5-3-1" | "3-2-1";
+export type StartSequence = "5-4-1" | "3-2-1";
 
 export const SEQUENCES: Record<
   StartSequence,
   { warningMs: number; milestonesMs: readonly number[] }
 > = {
-  "5-3-1": { warningMs: 5 * 60_000, milestonesMs: [5 * 60_000, 3 * 60_000, 60_000, 0] },
+  "5-4-1": { warningMs: 5 * 60_000, milestonesMs: [5 * 60_000, 4 * 60_000, 60_000, 0] },
   "3-2-1": { warningMs: 3 * 60_000, milestonesMs: [3 * 60_000, 2 * 60_000, 60_000, 0] },
 };
 

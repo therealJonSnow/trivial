@@ -6,7 +6,7 @@
 **Author:** Solo developer / Claude Code agent sessions
 
 > **v3.1 changelog** — Replaced the configurable "warning length" with a **start-sequence
-> toggle (5-3-1 / 3-2-1)**: the selected standard dinghy-racing sequence is itself the
+> toggle (5-4-1 / 3-2-1)**: the selected standard dinghy-racing sequence is itself the
 > lead-in to the first gun, and tapping Start begins it immediately. Flagged **[v3.1]**.
 >
 > **v3.0 changelog** — Folded in the decisions from the Stage 1 design interview. Material
@@ -81,7 +81,7 @@ The race runs on a single **wall-clock-anchored** master timeline. There are two
 **Start-sequence phase** — begins the instant the RO taps **Start Race** (no separate
 configurable "warning"; the sequence *is* the lead-in). **[v3.1]**
 - The RO picks one of the two standard dinghy-racing start sequences via a toggle on setup:
-  - **5-3-1** — 5-minute lead-in, signals at **5:00 / 3:00 / 1:00 / GO**
+  - **5-4-1** — 5-minute lead-in, signals at **5:00 / 4:00 / 1:00 / GO**
   - **3-2-1** — 3-minute lead-in, signals at **3:00 / 2:00 / 1:00 / GO**
 - The countdown runs to the **first gun** (the earliest / slowest class), with the selected
   sequence's milestones emphasised. This phase — and only this phase — shows milestones.
@@ -91,7 +91,7 @@ configurable "warning"; the sequence *is* the lead-in). **[v3.1]**
 - At each class start it flashes **GO** briefly (so the RO sounds the horn **once** per
   class), then retargets the next class. If the next gun is nearer than the flash hold,
   it retargets immediately — a GO flash must never hide an imminent next start.
-- There is **no** 5-3-1 milestone treatment after the first gun.
+- There is **no** 5-4-1 milestone treatment after the first gun.
 
 **Reference frame:**
 - First gun is at master-time `T = 0`.
@@ -248,7 +248,7 @@ Works offline. Operable in under one minute.
 ### Acceptance criteria
 - [ ] RO can select classes, set duration, and reach the timer screen in under 5 taps
 - [ ] Start offsets are calculated correctly per §2.2 (unit-tested, incl. the 24:56 example)
-- [ ] Start sequence (5-3-1 or 3-2-1, toggle) counts to the first gun with its milestone emphasis
+- [ ] Start sequence (5-4-1 or 3-2-1, toggle) counts to the first gun with its milestone emphasis
 - [ ] Race phase shows the next-start countdown + a small master race clock without manual scrolling
 - [ ] Identical-PY classes are grouped into a single start
 - [ ] Pause (postponement), Resume, Reset (re-arm to warning start, paused), and Stop all function
@@ -273,7 +273,7 @@ Works offline. Operable in under one minute.
 **Screen flow:**
 1. App opens → shows last race config (or empty state on first use)
 2. RO adjusts selected classes (favourites listed first, pre-selected)
-3. RO confirms/adjusts race **duration** and **start sequence** (5-3-1 / 3-2-1) (pre-filled from last session)
+3. RO confirms/adjusts race **duration** and **start sequence** (5-4-1 / 3-2-1) (pre-filled from last session)
 4. RO taps **Start Race** → timer screen
 
 **Class selection:**
@@ -285,7 +285,7 @@ Works offline. Operable in under one minute.
 
 **Inputs** **[v3]** — large +/− steppers, no keyboard:
 - **Race duration** — minutes, default 60 (first use), pre-filled from LocalStorage
-- **Start sequence** — segmented toggle between **5-3-1** and **3-2-1** (default 5-3-1).
+- **Start sequence** — segmented toggle between **5-4-1** and **3-2-1** (default 5-4-1).
   Determines the lead-in length (5 or 3 min) and the milestone signals. There is no
   separate "warning minutes" control. **[v3.1]**
 
@@ -322,7 +322,7 @@ Shown on the setup screen and as a reference panel on the timer screen.
 - Large countdown to the next class start (mm:ss)
 - Class name(s) of the next start
 - **GO** flash/highlight when a class is starting
-- Start-sequence phase only: the selected sequence's milestone emphasis (5/3/1 or 3/2/1)
+- Start-sequence phase only: the selected sequence's milestone emphasis (5/4/1 or 3/2/1)
 
 **Secondary displays:**
 - Small persistent **master race clock** (elapsed + time-to-finish) **[v3]**
@@ -381,7 +381,7 @@ Improve real-world usability and add export for clubs that want a printed start 
 
 ### Features
 **PDF Export** — printable A4 start sheet (classes, PY, start times, duration), client-side.
-**Audible Alerts** — countdown beeps before each start (and the 5-3-1-GO warning), toggleable, Web Audio.
+**Audible Alerts** — countdown beeps before each start (and the 5-4-1-GO warning), toggleable, Web Audio.
 **Timer Improvements** — visual flash/pulse on imminent starts, configurable warning threshold.
 **URL State Sharing** — encode race config (classes + duration + warning) in the URL query string; decode on load; does not override LocalStorage if absent.
 
@@ -482,7 +482,7 @@ and reviewed by the developer.
 
 | # | Decision |
 |---|---|
-| 1 | Start-sequence toggle (5-3-1 / 3-2-1) is the lead-in to the first gun; its milestones show only in this phase. Tapping Start begins it immediately; no separate configurable warning. **[v3.1]** |
+| 1 | Start-sequence toggle (5-4-1 / 3-2-1) is the lead-in to the first gun; its milestones show only in this phase. Tapping Start begins it immediately; no separate configurable warning. **[v3.1]** |
 | 2 | Race phase = plain countdown to next gun; brief GO flash per class; RO sounds horn once |
 | 3 | Clock is wall-clock anchored (Date.now() + start timestamp + accumulated pause); offsets in ms |
 | 4 | Pause = postponement (shift all remaining starts + finish) |

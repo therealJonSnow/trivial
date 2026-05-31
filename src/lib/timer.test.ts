@@ -25,10 +25,10 @@ function boat(name: string, py: number): BoatClass {
 }
 
 const schedule = buildSchedule([boat("RS800", 797), boat("Mirror", 1364)], 60)!;
-const WARN = 5 * 60_000; // 5-3-1 sequence lead-in
+const WARN = 5 * 60_000; // 5-4-1 sequence lead-in
 const GUN = 1_000_000; // arbitrary epoch for the first gun
 // startedAt so that firstGunEpoch === GUN
-const clock = armClock(GUN - WARN, "5-3-1");
+const clock = armClock(GUN - WARN, "5-4-1");
 
 describe("phase detection", () => {
   it("firstGunEpoch accounts for the sequence lead-in + postponement", () => {
@@ -52,6 +52,11 @@ describe("phase detection", () => {
     expect(v.phase).toBe("warning");
     expect(v.countdownMs).toBe(WARN);
     expect(v.activeMilestoneMs).toBe(5 * 60_000);
+  });
+
+  it("lights the 4:00 milestone (5-4-1) between 4 and 1 minutes to go", () => {
+    const v = deriveTimer(clock, schedule, GUN - 3 * 60_000); // 3:00 to go
+    expect(v.activeMilestoneMs).toBe(4 * 60_000);
   });
 
   it("lights the 1:00 milestone at one minute to go", () => {

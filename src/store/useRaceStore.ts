@@ -64,7 +64,7 @@ export const useRace = create<RaceState>()(
     (set, get) => ({
       selectedIds: [],
       durationMinutes: 60,
-      startSequence: "5-3-1",
+      startSequence: "5-4-1",
       clock: null,
 
       toggleSelected: (id) =>

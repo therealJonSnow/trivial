@@ -78,7 +78,7 @@ export function SetupScreen() {
             aria-label="Start sequence"
             className="mt-1 flex gap-1 rounded-lg bg-line p-1"
           >
-            {(["5-3-1", "3-2-1"] as const).map((seq) => {
+            {(["5-4-1", "3-2-1"] as const).map((seq) => {
               const active = startSequence === seq;
               return (
                 <button
