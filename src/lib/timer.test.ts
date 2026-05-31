@@ -1,0 +1,87 @@
+import { describe, it, expect } from "vitest";
+import {
+  armClock,
+  deriveTimer,
+  pauseClock,
+  resumeClock,
+  firstGunEpoch,
+  GO_HOLD_MS,
+} from "./timer";
+import { buildSchedule } from "./schedule";
+import type { BoatClass } from "./types";
+
+function boat(name: string, py: number): BoatClass {
+  return {
+    id: py,
+    name,
+    py,
+    category: "dinghy",
+    crew: 1,
+    rig: "U",
+    spinnaker: false,
+    change: 0,
+    notes: "",
+  };
+}
+
+const schedule = buildSchedule([boat("RS800", 797), boat("Mirror", 1364)], 60)!;
+const WARN = 5 * 60_000;
+const GUN = 1_000_000; // arbitrary epoch for the first gun
+// startedAt so that firstGunEpoch === GUN
+const clock = armClock(GUN - WARN, WARN);
+
+describe("phase detection", () => {
+  it("firstGunEpoch accounts for warning + postponement", () => {
+    expect(firstGunEpoch(clock)).toBe(GUN);
+  });
+
+  it("is in the warning phase before the first gun", () => {
+    const v = deriveTimer(clock, schedule, GUN - WARN); // just tapped Start
+    expect(v.phase).toBe("warning");
+    expect(v.countdownMs).toBe(WARN);
+    expect(v.activeMilestoneMs).toBe(5 * 60_000);
+  });
+
+  it("lights the 1:00 milestone at one minute to go", () => {
+    const v = deriveTimer(clock, schedule, GUN - 60_000);
+    expect(v.activeMilestoneMs).toBe(60_000);
+  });
+
+  it("enters the race phase and flashes GO at the first gun", () => {
+    const v = deriveTimer(clock, schedule, GUN);
+    expect(v.phase).toBe("race");
+    expect(v.flashing?.classes[0]?.name).toBe("Mirror"); // earliest start
+    expect(v.startedOrders).toContain(1);
+    expect(v.nextStart?.isScratch).toBe(true);
+  });
+
+  it("stops flashing once GO_HOLD has elapsed", () => {
+    const v = deriveTimer(clock, schedule, GUN + GO_HOLD_MS + 1);
+    expect(v.flashing).toBeNull();
+  });
+
+  it("reaches finished at scratch start + duration", () => {
+    const v = deriveTimer(clock, schedule, GUN + schedule.finishFromFirstGunMs);
+    expect(v.phase).toBe("finished");
+    expect(v.toFinishMs).toBe(0);
+  });
+});
+
+describe("postponement (pause)", () => {
+  it("shifts the first gun later by the paused duration", () => {
+    let c = pauseClock(clock, GUN - 100_000); // pause with 100s of warning left
+    c = resumeClock(c, GUN - 100_000 + 30_000); // resume 30s later
+    expect(firstGunEpoch(c)).toBe(GUN + 30_000);
+    const v = deriveTimer(c, schedule, GUN - 100_000 + 30_000);
+    expect(v.phase).toBe("warning");
+    expect(v.countdownMs).toBe(100_000); // still 100s to go, not 70s
+  });
+
+  it("freezes the countdown while paused", () => {
+    const c = pauseClock(clock, GUN - 90_000);
+    const a = deriveTimer(c, schedule, GUN - 90_000);
+    const b = deriveTimer(c, schedule, GUN - 10_000); // wall clock advanced
+    expect(a.countdownMs).toBe(b.countdownMs); // frozen at pause instant
+    expect(b.paused).toBe(true);
+  });
+});

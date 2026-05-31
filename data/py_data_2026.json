@@ -1,0 +1,1086 @@
+{
+  "meta": {
+    "source": "RYA Portsmouth Yardstick Scheme",
+    "version": "4",
+    "lastUpdated": "2026-04-22",
+    "description": "RYA Portsmouth Number (PY) List 2026. National base list for dinghy handicap racing."
+  },
+  "classes": {
+    "dinghy": [
+      {
+        "id": 6,
+        "name": "2.4mR",
+        "crew": 1,
+        "rig": "S",
+        "spinnaker": false,
+        "py": 1235,
+        "change": -9,
+        "notes": ""
+      },
+      {
+        "id": 221,
+        "name": "2000",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1122,
+        "change": 1,
+        "notes": ""
+      },
+      {
+        "id": 7,
+        "name": "29er",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 900,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 223,
+        "name": "4000",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 926,
+        "change": 3,
+        "notes": ""
+      },
+      {
+        "id": 12,
+        "name": "420",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1110,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 17,
+        "name": "505",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 892,
+        "change": -4,
+        "notes": ""
+      },
+      {
+        "id": 22,
+        "name": "Albacore",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": false,
+        "py": 1037,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 25,
+        "name": "Alto",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 910,
+        "change": -11,
+        "notes": ""
+      },
+      {
+        "id": 28,
+        "name": "B14",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 858,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 34,
+        "name": "Blaze",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1030,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 44,
+        "name": "British Moth",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1160,
+        "change": -5,
+        "notes": ""
+      },
+      {
+        "id": 46,
+        "name": "Buzz",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1009,
+        "change": 3,
+        "notes": "Moved from experimental list"
+      },
+      {
+        "id": 50,
+        "name": "Byte CII",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1123,
+        "change": -6,
+        "notes": ""
+      },
+      {
+        "id": 62,
+        "name": "Comet",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1208,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 64,
+        "name": "Comet Xtra",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1210,
+        "change": 0,
+        "notes": "Moved from limited data list"
+      },
+      {
+        "id": 69,
+        "name": "Comet Trio Mk 1",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1082,
+        "change": -6,
+        "notes": "Clubs to distinguish between Mk 1 and Mk 2 rigs on returns"
+      },
+      {
+        "id": 70,
+        "name": "Comet Trio Mk 2",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1053,
+        "change": 0,
+        "notes": "Clubs to distinguish between Mk 1 and Mk 2 rigs on returns"
+      },
+      {
+        "id": 71,
+        "name": "Contender",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 973,
+        "change": 4,
+        "notes": ""
+      },
+      {
+        "id": 81,
+        "name": "Devoti D-One",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": true,
+        "py": 957,
+        "change": 2,
+        "notes": ""
+      },
+      {
+        "id": 82,
+        "name": "Devoti D-Zero",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1029,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 108,
+        "name": "Enterprise",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": false,
+        "py": 1137,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 111,
+        "name": "Europe",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1140,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 132,
+        "name": "Finn",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1049,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 133,
+        "name": "Fireball",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 960,
+        "change": 1,
+        "notes": ""
+      },
+      {
+        "id": 135,
+        "name": "Firefly",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": false,
+        "py": 1178,
+        "change": 4,
+        "notes": ""
+      },
+      {
+        "id": 140,
+        "name": "Flying Fifteen Classic (1-2700)",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1079,
+        "change": 0,
+        "notes": "New to list 2026"
+      },
+      {
+        "id": 141,
+        "name": "Flying Fifteen Silver (2701-3400)",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1051,
+        "change": 0,
+        "notes": "New to list 2026"
+      },
+      {
+        "id": 142,
+        "name": "Flying Fifteen",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1028,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 148,
+        "name": "Fusion Pro",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1281,
+        "change": -9,
+        "notes": ""
+      },
+      {
+        "id": 153,
+        "name": "GP14",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1145,
+        "change": 4,
+        "notes": ""
+      },
+      {
+        "id": 155,
+        "name": "Graduate",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": false,
+        "py": 1110,
+        "change": 10,
+        "notes": ""
+      },
+      {
+        "id": 156,
+        "name": "Gull",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1385,
+        "change": 0,
+        "notes": "Moved from limited data list"
+      },
+      {
+        "id": 158,
+        "name": "Hadron H2",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1045,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 182,
+        "name": "Hornet",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 950,
+        "change": -5,
+        "notes": ""
+      },
+      {
+        "id": 189,
+        "name": "ILCA 4 / Laser 4.7",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1218,
+        "change": 2,
+        "notes": ""
+      },
+      {
+        "id": 190,
+        "name": "ILCA 6 / Laser Radial",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1156,
+        "change": 2,
+        "notes": ""
+      },
+      {
+        "id": 191,
+        "name": "ILCA 7 / Laser",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1103,
+        "change": -1,
+        "notes": ""
+      },
+      {
+        "id": 192,
+        "name": "Illusion",
+        "crew": 1,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1285,
+        "change": -9,
+        "notes": "Moved from limited data list"
+      },
+      {
+        "id": 204,
+        "name": "K1",
+        "crew": 1,
+        "rig": "S",
+        "spinnaker": false,
+        "py": 1060,
+        "change": -5,
+        "notes": ""
+      },
+      {
+        "id": 319,
+        "name": "K6",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 900,
+        "change": -10,
+        "notes": ""
+      },
+      {
+        "id": 206,
+        "name": "Kestrel",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1042,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 213,
+        "name": "Lark",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1060,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 233,
+        "name": "Laser Stratos Centreboard",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1108,
+        "change": 5,
+        "notes": "Moved from limited data list"
+      },
+      {
+        "id": 239,
+        "name": "Lightning 368",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1171,
+        "change": 3,
+        "notes": ""
+      },
+      {
+        "id": 245,
+        "name": "Megabyte",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1058,
+        "change": -2,
+        "notes": ""
+      },
+      {
+        "id": 250,
+        "name": "Merlin Rocket",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 980,
+        "change": -3,
+        "notes": ""
+      },
+      {
+        "id": 252,
+        "name": "Miracle",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1196,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 253,
+        "name": "Mirror",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1364,
+        "change": -4,
+        "notes": ""
+      },
+      {
+        "id": 254,
+        "name": "Mirror - Singlehanded with Spinnaker",
+        "crew": 1,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1364,
+        "change": 4,
+        "notes": "Moved from limited data list"
+      },
+      {
+        "id": 255,
+        "name": "Mirror Singlehanded No Spinnaker",
+        "crew": 1,
+        "rig": "S",
+        "spinnaker": false,
+        "py": 1376,
+        "change": 1,
+        "notes": ""
+      },
+      {
+        "id": 257,
+        "name": "Musto Skiff",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": true,
+        "py": 830,
+        "change": -4,
+        "notes": ""
+      },
+      {
+        "id": 259,
+        "name": "National 12",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": false,
+        "py": 1070,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 280,
+        "name": "OK",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1092,
+        "change": -3,
+        "notes": ""
+      },
+      {
+        "id": 282,
+        "name": "Optimist",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1629,
+        "change": -2,
+        "notes": ""
+      },
+      {
+        "id": 283,
+        "name": "Osprey",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 932,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 288,
+        "name": "Phantom",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 998,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 299,
+        "name": "Rooster 8.1",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1016,
+        "change": -5,
+        "notes": ""
+      },
+      {
+        "id": 311,
+        "name": "RS Aero 5",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1141,
+        "change": 2,
+        "notes": ""
+      },
+      {
+        "id": 455,
+        "name": "RS Aero 6",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1098,
+        "change": -1,
+        "notes": ""
+      },
+      {
+        "id": 312,
+        "name": "RS Aero 7",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1062,
+        "change": -1,
+        "notes": ""
+      },
+      {
+        "id": 313,
+        "name": "RS Aero 9",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1005,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 318,
+        "name": "RS Feva XL",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1248,
+        "change": 4,
+        "notes": "Clubs to distinguish between S and XL variants on returns"
+      },
+      {
+        "id": 324,
+        "name": "RS Tera Pro",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1368,
+        "change": -2,
+        "notes": ""
+      },
+      {
+        "id": 323,
+        "name": "RS Tera Sport",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1452,
+        "change": -3,
+        "notes": ""
+      },
+      {
+        "id": 325,
+        "name": "RS Vareo",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": true,
+        "py": 1095,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 329,
+        "name": "RS Vision",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1150,
+        "change": 5,
+        "notes": ""
+      },
+      {
+        "id": 301,
+        "name": "RS100 8.4",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": true,
+        "py": 1002,
+        "change": 1,
+        "notes": ""
+      },
+      {
+        "id": 303,
+        "name": "RS200",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1053,
+        "change": 3,
+        "notes": ""
+      },
+      {
+        "id": 304,
+        "name": "RS300",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 965,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 305,
+        "name": "RS400",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 945,
+        "change": 3,
+        "notes": ""
+      },
+      {
+        "id": 306,
+        "name": "RS500",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 963,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 307,
+        "name": "RS600",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 921,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 309,
+        "name": "RS700",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": true,
+        "py": 845,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 310,
+        "name": "RS800",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 797,
+        "change": -2,
+        "notes": ""
+      },
+      {
+        "id": 334,
+        "name": "Scorpion",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1042,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 335,
+        "name": "Seafly",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1074,
+        "change": -3,
+        "notes": ""
+      },
+      {
+        "id": 348,
+        "name": "Snipe",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": false,
+        "py": 1104,
+        "change": -6,
+        "notes": ""
+      },
+      {
+        "id": 350,
+        "name": "Solo",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1139,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 351,
+        "name": "Solution",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1112,
+        "change": 4,
+        "notes": ""
+      },
+      {
+        "id": 355,
+        "name": "Splash",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1247,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 363,
+        "name": "Streaker",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1121,
+        "change": -3,
+        "notes": ""
+      },
+      {
+        "id": 367,
+        "name": "Supernova",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1075,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 370,
+        "name": "Tasar",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": false,
+        "py": 1022,
+        "change": 3,
+        "notes": ""
+      },
+      {
+        "id": 379,
+        "name": "Topper",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1369,
+        "change": 6,
+        "notes": ""
+      },
+      {
+        "id": 380,
+        "name": "Topper 4.2",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1450,
+        "change": 10,
+        "notes": ""
+      },
+      {
+        "id": 411,
+        "name": "Wanderer",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1201,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 415,
+        "name": "Wayfarer",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1107,
+        "change": -2,
+        "notes": ""
+      }
+    ],
+    "multihull": [
+      {
+        "id": 19,
+        "name": "A Class (Non-Foiling)",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 695,
+        "change": 0,
+        "notes": "Clubs to distinguish between foiling and non-foiling"
+      },
+      {
+        "id": 55,
+        "name": "Catapult",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 898,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 56,
+        "name": "Challenger",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1175,
+        "change": 4,
+        "notes": ""
+      },
+      {
+        "id": 84,
+        "name": "Dart 15 / Sprint 15",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 916,
+        "change": -8,
+        "notes": ""
+      },
+      {
+        "id": 86,
+        "name": "Dart 15 Sport / Sprint 15 Sport",
+        "crew": 1,
+        "rig": "S",
+        "spinnaker": false,
+        "py": 904,
+        "change": 0,
+        "notes": ""
+      },
+      {
+        "id": 95,
+        "name": "Dart 18",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": false,
+        "py": 795,
+        "change": -15,
+        "notes": ""
+      },
+      {
+        "id": 187,
+        "name": "Hurricane 5.9 SX",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 680,
+        "change": -11,
+        "notes": ""
+      },
+      {
+        "id": 354,
+        "name": "Spitfire",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": true,
+        "py": 745,
+        "change": 5,
+        "notes": ""
+      }
+    ],
+    "experimental": [
+      {
+        "id": 36,
+        "name": "Blaze Fire",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1050,
+        "change": 0,
+        "notes": "Experimental"
+      },
+      {
+        "id": 49,
+        "name": "Byte CI",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1223,
+        "change": 6,
+        "notes": "Experimental. Clubs to distinguish between CI and CII"
+      },
+      {
+        "id": 51,
+        "name": "Cadet",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1455,
+        "change": 0,
+        "notes": "Experimental"
+      },
+      {
+        "id": 451,
+        "name": "Devoti D Zero - Black Rig",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1051,
+        "change": -6,
+        "notes": "Experimental"
+      },
+      {
+        "id": 151,
+        "name": "Fusion Pro Gen 2",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 1275,
+        "change": 0,
+        "notes": "Experimental"
+      },
+      {
+        "id": 195,
+        "name": "International Canoe",
+        "crew": 1,
+        "rig": "S",
+        "spinnaker": false,
+        "py": 858,
+        "change": 11,
+        "notes": "Experimental. Development class"
+      },
+      {
+        "id": 202,
+        "name": "ISO",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 940,
+        "change": 12,
+        "notes": "Experimental"
+      },
+      {
+        "id": 507,
+        "name": "Mirror - No Spinnaker",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": false,
+        "py": 1376,
+        "change": 5,
+        "notes": "Experimental"
+      },
+      {
+        "id": 161,
+        "name": "Hansa 303 - Singlehanded",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1570,
+        "change": -10,
+        "notes": "Experimental"
+      },
+      {
+        "id": 162,
+        "name": "Hansa Liberty",
+        "crew": 1,
+        "rig": "U",
+        "spinnaker": false,
+        "py": 1411,
+        "change": -12,
+        "notes": "Experimental"
+      },
+      {
+        "id": 553,
+        "name": "Hartley Zenith",
+        "crew": 1,
+        "rig": "S",
+        "spinnaker": false,
+        "py": 1051,
+        "change": 0,
+        "notes": "Experimental"
+      },
+      {
+        "id": 549,
+        "name": "Melges 15",
+        "crew": 2,
+        "rig": "S",
+        "spinnaker": true,
+        "py": 994,
+        "change": 0,
+        "notes": "Experimental"
+      }
+    ]
+  }
+}
