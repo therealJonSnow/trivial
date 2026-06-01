@@ -13,6 +13,8 @@ interface ScheduleListProps {
   firstGunEpoch?: number;
   /** Show the column header row (default true). */
   header?: boolean;
+  /** Stagger rows in on mount (setup preview only). */
+  animateIn?: boolean;
   className?: string;
 }
 
@@ -38,39 +40,51 @@ export function ScheduleList({
   view,
   firstGunEpoch,
   header = true,
+  animateIn = false,
   className = "",
 }: ScheduleListProps) {
   const showClock = firstGunEpoch !== undefined;
+  const preview = !view; // setup: no live status — show the plan in full ink
   return (
     <div className={className}>
       {header && (
-        <div className="flex items-center gap-3 pb-1 text-[10px] uppercase tracking-wider text-muted">
-          <span className="w-10 shrink-0">#</span>
+        <div className="flex items-center gap-3 pb-1.5 font-display text-[10px] font-semibold uppercase tracking-[0.18em] text-imminent">
+          <span className="w-6 shrink-0">#</span>
           <span className="min-w-0 flex-1">Class</span>
           <span className="w-12 shrink-0 text-right">PY</span>
-          <span className="w-16 shrink-0 text-right">Start</span>
+          <span className="w-16 shrink-0 text-right">Timing</span>
           {showClock && <span className="w-20 shrink-0 text-right">Clock</span>}
         </div>
       )}
       <ul className="divide-y divide-line">
-        {schedule.starts.map((s) => {
+        {schedule.starts.map((s, i) => {
           const status = statusOf(s.order, view);
+          const isFirst = s.order === 1;
           return (
             <li
               key={s.order}
-              className={`flex items-center gap-3 py-2 ${status === "starting" ? "animate-pulse" : ""}`}
+              style={animateIn ? { animationDelay: `${Math.min(i, 12) * 45}ms` } : undefined}
+              className={`flex items-center gap-3 py-2.5 ${
+                status === "starting" ? "animate-pulse" : ""
+              } ${animateIn ? "animate-row-rise" : ""}`}
             >
-              <span className="w-10 shrink-0 font-mono text-xs text-muted">
-                {ordinal(s.order)}
+              <span
+                className={`flex h-6 w-6 shrink-0 items-center justify-start rounded font-mono text-[11px] tabular-nums text-muted`}
+              >
+                {i+1}
               </span>
-              <span className={`min-w-0 flex-1 truncate text-sm ${STATUS_TEXT[status]}`}>
+              <span
+                className={`min-w-0 flex-1 truncate text-[15px] ${
+                  preview ? "text-ink" : STATUS_TEXT[status]
+                }`}
+              >
                 {s.classes.map((c) => c.name).join(" + ")}
               </span>
-              <span className="w-12 shrink-0 text-right font-mono text-xs text-muted">
+              <span className="w-12 shrink-0 text-right font-mono text-xs tabular-nums text-muted">
                 {s.py}
               </span>
               {/* Time after the first gun — ascends with start order (first = +0:00). */}
-              <span className="w-16 shrink-0 text-right font-mono text-sm tabular-nums text-ink">
+              <span className="w-16 shrink-0 text-right font-mono text-sm font-medium tabular-nums text-ink">
                 +{formatMmSs(s.startFromFirstGunMs)}
               </span>
               {showClock && (

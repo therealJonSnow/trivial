@@ -64,13 +64,14 @@ export function ClassBrowser({
           placeholder="Search classes…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="mb-3 h-11 w-full rounded-lg border border-line bg-panel px-3 text-ink placeholder:text-muted"
+          className="mb-3 h-11 w-full rounded-lg border border-line bg-panel px-3 text-ink placeholder:text-muted focus:border-signal focus:outline-none focus:ring-1 focus:ring-signal/60"
         />
       )}
 
       {favClasses.length > 0 && (
         <ClassGroup
           title="Favourites"
+          star
           classes={favClasses}
           selectedSet={selectedSet}
           favSet={favSet}
@@ -96,7 +97,7 @@ export function ClassBrowser({
         );
       })}
       {filtered.length === 0 && (
-        <p className="py-10 text-center text-sm text-muted">
+        <p className="py-12 text-center text-sm text-muted">
           No classes match “{query.trim()}”.
         </p>
       )}
@@ -106,6 +107,8 @@ export function ClassBrowser({
 
 interface ClassGroupProps {
   title: string;
+  /** Mark the group heading with a star (favourites). */
+  star?: boolean;
   classes: BoatClass[];
   selectedSet: Set<number>;
   favSet: Set<number>;
@@ -116,6 +119,7 @@ interface ClassGroupProps {
 
 function ClassGroup({
   title,
+  star = false,
   classes,
   selectedSet,
   favSet,
@@ -124,47 +128,76 @@ function ClassGroup({
   onToggleFav,
 }: ClassGroupProps) {
   return (
-    <section className="mb-4">
-      <h3 className="mb-1 text-xs uppercase tracking-wider text-muted">{title}</h3>
-      <ul className="divide-y divide-line overflow-hidden rounded-xl bg-panel">
+    <section className="mb-5">
+      <h3 className="mb-1.5 flex items-center gap-1.5 px-1 font-display text-[11px] font-semibold uppercase tracking-[0.22em] text-muted">
+        {star && <span className="text-imminent">★</span>}
+        <span>{title}</span>
+        <span className="font-mono text-[10px] font-medium tabular-nums text-line">
+          {classes.length}
+        </span>
+      </h3>
+      <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-panel">
         {classes.map((c) => {
           const selected = selectedSet.has(c.id);
           const locked = lockedSet.has(c.id);
+          const isFav = favSet.has(c.id);
           return (
-            <li key={c.id} className="flex items-center">
+            <li
+              key={c.id}
+              className={`relative flex items-center transition-colors ${
+                selected && !locked ? "bg-signal/[0.06]" : ""
+              }`}
+            >
+              {/* Selection rail — a confident left edge on chosen rows. */}
+              <span
+                aria-hidden
+                className={`absolute inset-y-0 left-0 w-[3px] ${
+                  locked ? "bg-started" : selected ? "bg-signal" : "bg-transparent"
+                }`}
+              />
               <button
                 type="button"
                 disabled={locked}
                 onClick={() => onToggleSelected(c.id)}
-                className="flex min-h-[44px] flex-1 items-center gap-3 px-3 py-2 text-left disabled:opacity-100"
+                className="flex min-h-[48px] flex-1 items-center gap-3 px-3 py-2 text-left disabled:opacity-100"
               >
                 <span
-                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs ${
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border text-xs leading-none transition-colors ${
                     locked
                       ? "border-started bg-started text-ground"
                       : selected
-                        ? "border-imminent bg-imminent text-ground"
+                        ? "border-signal bg-signal text-ground"
                         : "border-line text-transparent"
                   }`}
                 >
                   {locked ? "●" : "✓"}
                 </span>
                 <span
-                  className={`flex-1 truncate ${selected || locked ? "text-ink" : "text-muted"}`}
+                  className={`flex-1 truncate text-[15px] ${
+                    selected || locked ? "text-ink" : "text-muted"
+                  }`}
                 >
                   {c.name}
                   {locked && (
-                    <span className="ml-2 text-[10px] uppercase text-started">started</span>
+                    <span className="ml-2 align-middle font-display text-[10px] uppercase tracking-wider text-started">
+                      started
+                    </span>
                   )}
                 </span>
-                <span className="font-mono text-xs text-muted">{c.py}</span>
+                <span
+                  className={`rounded px-1.5 py-0.5 font-mono text-xs tabular-nums ${
+                    selected || locked ? "text-ink" : "text-muted"
+                  }`}
+                >
+                  {c.py}
+                </span>
               </button>
               <button
                 type="button"
-                aria-label={favSet.has(c.id) ? "Unfavourite" : "Favourite"}
+                aria-label={isFav ? "Unfavourite" : "Favourite"}
                 onClick={() => onToggleFav(c.id)}
-                className={`flex h-11 w-11 items-center justify-center text-lg ${
-                  favSet.has(c.id) ? "text-imminent" : "text-line"
+                className={`flex h-12 w-12 items-center justify-center text-lg transition-colors ${
+                  isFav ? "text-imminent" : "text-line active:text-muted"
                 }`}
               >
                 ★

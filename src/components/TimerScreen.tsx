@@ -120,10 +120,10 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
             type="button"
             onClick={onOpenFleet}
             className={`flex h-9 items-center rounded-lg border px-3 font-mono text-xs font-bold uppercase tracking-wider ${
-              isTakeover ? "border-ground/40 text-ground/80" : "border-line text-muted"
+              isTakeover ? "border-ground/40 text-ground/80" : "border-signal text-signal"
             }`}
           >
-            + Boat
+            + Class
           </button>
           <button
             type="button"
@@ -134,8 +134,8 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
               isTakeover
                 ? "border-ground/40 text-ground/80"
                 : muted
-                  ? "border-line text-muted"
-                  : "border-line text-imminent"
+                  ? "border-imminent/60 text-imminent/60"
+                  : "border-imminent text-imminent"
             }`}
           >
             <SpeakerIcon muted={muted} />

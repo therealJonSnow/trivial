@@ -22,11 +22,12 @@ const FIRST_SIGNAL: Record<StartSequence, string> = {
  */
 export function StartConfirm({ sequence, onConfirm, onCancel }: StartConfirmProps) {
   return (
-    <div className="animate-pop-in fixed inset-0 z-50 flex flex-col items-center justify-center bg-ground px-6 text-center">
-      <div className="text-sm font-bold uppercase tracking-[0.4em] text-imminent">
+    <div className="animate-pop-in instrument-bg fixed inset-0 z-50 flex flex-col items-center justify-center px-6 text-center">
+      <div className="font-display text-sm font-bold uppercase tracking-[0.4em] text-imminent">
         Start sequence?
       </div>
-      <p className="mt-4 max-w-xs text-lg text-ink">
+      <div className="flag-strip mt-4 w-32" />
+      <p className="mt-5 max-w-xs text-lg text-ink">
         This begins a 10-second count-in to the first signal{" "}
         <span className="font-mono font-bold tabular-nums text-imminent">
           ({FIRST_SIGNAL[sequence]})
@@ -39,14 +40,14 @@ export function StartConfirm({ sequence, onConfirm, onCancel }: StartConfirmProp
       <button
         type="button"
         onClick={onConfirm}
-        className="mt-10 h-16 w-full max-w-xs rounded-2xl bg-imminent text-xl font-bold uppercase tracking-wider text-ground active:opacity-90"
+        className="mt-10 h-16 w-full max-w-xs rounded-2xl bg-imminent font-display text-xl font-bold uppercase tracking-[0.14em] text-ground active:opacity-90"
       >
         Start sequence
       </button>
       <button
         type="button"
         onClick={onCancel}
-        className="mt-3 h-12 px-8 text-sm font-semibold uppercase tracking-wider text-muted"
+        className="mt-3 h-12 px-8 font-display text-sm font-semibold uppercase tracking-wider text-muted active:text-ink"
       >
         Cancel
       </button>

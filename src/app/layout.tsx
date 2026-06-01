@@ -1,6 +1,27 @@
 import type { Metadata, Viewport } from "next";
+import { Saira_Condensed, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ServiceWorker } from "@/components/ServiceWorker";
+
+/**
+ * Type system. Self-hosted by next/font at build time — no runtime fetch, so the
+ * PWA stays offline-safe.
+ *   · Saira Condensed — squared, signage-grade display for headings / labels.
+ *   · JetBrains Mono — tabular technical numerals for the instrument readouts.
+ */
+const display = Saira_Condensed({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-display",
+  display: "swap",
+});
+
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Trivial — pursuit race timer",
@@ -29,7 +50,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en-GB">
+    <html lang="en-GB" className={`${display.variable} ${mono.variable}`}>
       <body>
         {children}
         <ServiceWorker />
