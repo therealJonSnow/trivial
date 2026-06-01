@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { pyMeta, resolveClasses } from "@/lib/data";
 import { buildSchedule } from "@/lib/schedule";
 import { unlockAudio } from "@/lib/audio";
@@ -56,9 +57,12 @@ export function SetupScreen() {
           <h1 className="font-display text-3xl font-bold uppercase leading-none tracking-[0.32em] text-ink">
             Trivial
           </h1>
-          <span className="font-mono text-[10px] mt-1 tabular-nums text-muted">
-            PY v{pyMeta.version}
-          </span>
+          <Link
+            href="/about"
+            className="mt-1 font-mono text-[10px] tabular-nums text-muted underline-offset-2 active:text-ink"
+          >
+            About & Guide ›
+          </Link>
         </div>
         <p className="mt-1.5 font-display text-[11px] font-medium uppercase tracking-[0.28em] text-signal">
           Pursuit race start timer
