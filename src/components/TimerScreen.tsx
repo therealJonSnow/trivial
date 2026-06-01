@@ -219,7 +219,7 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
           <>
             {isWarning && milestoneLabel(view.activeMilestoneMs) && (
               <div className="mb-3 animate-pulse rounded-full border-2 border-imminent px-4 py-1 text-base font-bold uppercase tracking-[0.2em] text-imminent">
-                {milestoneLabel(view.activeMilestoneMs)}
+                {milestoneLabel(view.activeMilestoneMs)} flag raised
               </div>
             )}
             <div

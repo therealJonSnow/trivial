@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { classesByIds } from "@/lib/data";
+import { resolveClasses } from "@/lib/data";
 import { buildSchedule, computeStartFromFirstGunMs } from "@/lib/schedule";
 import { deriveTimer, firstGunEpoch } from "@/lib/timer";
 import { formatCountdown, formatMmSs } from "@/lib/format";
-import { useFavourites, useRace } from "@/store/useRaceStore";
+import { useCustomClasses, useFavourites, useRace } from "@/store/useRaceStore";
 import { useNow } from "@/hooks/useNow";
 import { ScheduleList } from "./ScheduleList";
 import { ClassBrowser } from "./ClassBrowser";
@@ -22,7 +22,9 @@ interface FleetScreenProps {
  */
 export function FleetScreen({ onBack }: FleetScreenProps) {
   const { favourites, toggleFavourite } = useFavourites();
-  const { clock, frame, selectedIds, durationMinutes, toggleSelected } = useRace();
+  const { customClasses, addCustomClass, updateCustomClass, deleteCustomClass } =
+    useCustomClasses();
+  const { clock, frame, selectedIds, durationMinutes, toggleSelected, setSelected } = useRace();
 
   const [alertNames, setAlertNames] = useState<string[] | null>(null);
 
@@ -30,8 +32,9 @@ export function FleetScreen({ onBack }: FleetScreenProps) {
   const now = useNow(clock !== null && !paused);
 
   const schedule = useMemo(
-    () => buildSchedule(classesByIds(selectedIds), durationMinutes, frame ?? undefined),
-    [selectedIds, durationMinutes, frame],
+    () =>
+      buildSchedule(resolveClasses(selectedIds, customClasses), durationMinutes, frame ?? undefined),
+    [selectedIds, durationMinutes, frame, customClasses],
   );
 
   const view = clock && schedule ? deriveTimer(clock, schedule, now) : null;
@@ -49,7 +52,7 @@ export function FleetScreen({ onBack }: FleetScreenProps) {
     if (wasSelected || !frame || !clock) return; // removing, or pre-race guard
 
     // Adding mid-race: classify against the LOCKED frame.
-    const cls = classesByIds([id])[0];
+    const cls = resolveClasses([id], customClasses)[0];
     if (!cls) return;
     const startFromGun = computeStartFromFirstGunMs(
       frame.durationMs,
@@ -58,6 +61,12 @@ export function FleetScreen({ onBack }: FleetScreenProps) {
     );
     const msSinceFirstGun = (clock.pausedAtEpoch ?? Date.now()) - firstGunEpoch(clock);
     if (startFromGun <= msSinceFirstGun) setAlertNames([cls.name]);
+  };
+
+  const handleDeleteCustom = (id: number) => {
+    if (lockedIds.includes(id)) return;
+    deleteCustomClass(id);
+    setSelected(selectedIds.filter((x) => x !== id));
   };
 
   const gun = clock ? firstGunEpoch(clock) : 0;
@@ -115,6 +124,10 @@ export function FleetScreen({ onBack }: FleetScreenProps) {
           onToggleSelected={handleToggle}
           onToggleFavourite={toggleFavourite}
           lockedIds={lockedIds}
+          customClasses={customClasses}
+          onAddCustomClass={addCustomClass}
+          onUpdateCustomClass={updateCustomClass}
+          onDeleteCustomClass={handleDeleteCustom}
         />
       </div>
 

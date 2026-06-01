@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { classesByIds, pyMeta } from "@/lib/data";
+import { pyMeta, resolveClasses } from "@/lib/data";
 import { buildSchedule } from "@/lib/schedule";
 import { unlockAudio } from "@/lib/audio";
-import { useFavourites, useRace } from "@/store/useRaceStore";
+import { useCustomClasses, useFavourites, useRace } from "@/store/useRaceStore";
 import { Stepper } from "./Stepper";
 import { ScheduleList } from "./ScheduleList";
 import { ClassPicker } from "./ClassPicker";
@@ -12,6 +12,8 @@ import { StartConfirm } from "./StartConfirm";
 
 export function SetupScreen() {
   const { favourites, toggleFavourite } = useFavourites();
+  const { customClasses, addCustomClass, updateCustomClass, deleteCustomClass } =
+    useCustomClasses();
   const {
     selectedIds,
     durationMinutes,
@@ -34,9 +36,14 @@ export function SetupScreen() {
   }, []);
 
   const schedule = useMemo(
-    () => buildSchedule(classesByIds(selectedIds), durationMinutes),
-    [selectedIds, durationMinutes],
+    () => buildSchedule(resolveClasses(selectedIds, customClasses), durationMinutes),
+    [selectedIds, durationMinutes, customClasses],
   );
+
+  const handleDeleteCustom = (id: number) => {
+    deleteCustomClass(id);
+    setSelected(selectedIds.filter((x) => x !== id));
+  };
 
   const count = selectedIds.length;
 
@@ -170,6 +177,10 @@ export function SetupScreen() {
           onToggleFavourite={toggleFavourite}
           onClear={() => setSelected([])}
           onClose={() => setPicking(false)}
+          customClasses={customClasses}
+          onAddCustomClass={addCustomClass}
+          onUpdateCustomClass={updateCustomClass}
+          onDeleteCustomClass={handleDeleteCustom}
         />
       )}
 

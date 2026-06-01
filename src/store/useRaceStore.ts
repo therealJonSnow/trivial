@@ -9,8 +9,41 @@ import {
   type StartSequence,
 } from "@/lib/timer";
 import { buildSchedule, frameFromSchedule } from "@/lib/schedule";
-import { classesByIds } from "@/lib/data";
-import type { ScheduleFrame } from "@/lib/types";
+import { resolveClasses } from "@/lib/data";
+import type { CustomBoatClass, ScheduleFrame } from "@/lib/types";
+
+/** User-defined custom classes — persisted under `trivial.customClasses`. */
+interface CustomClassesState {
+  customClasses: CustomBoatClass[];
+  addCustomClass: (name: string, py: number) => void;
+  updateCustomClass: (id: number, name: string, py: number) => void;
+  deleteCustomClass: (id: number) => void;
+}
+
+export const useCustomClasses = create<CustomClassesState>()(
+  persist(
+    (set) => ({
+      customClasses: [],
+      addCustomClass: (name, py) =>
+        set((s) => {
+          const nextId =
+            s.customClasses.length === 0
+              ? -1
+              : Math.min(...s.customClasses.map((c) => c.id)) - 1;
+          return { customClasses: [...s.customClasses, { id: nextId, name: name.trim(), py }] };
+        }),
+      updateCustomClass: (id, name, py) =>
+        set((s) => ({
+          customClasses: s.customClasses.map((c) =>
+            c.id === id ? { ...c, name: name.trim(), py } : c,
+          ),
+        })),
+      deleteCustomClass: (id) =>
+        set((s) => ({ customClasses: s.customClasses.filter((c) => c.id !== id) })),
+    }),
+    { name: "trivial.customClasses" },
+  ),
+);
 
 /** Favourites — persisted under `trivial.favourites`. */
 interface FavouritesState {
@@ -96,7 +129,8 @@ export const useRace = create<RaceState>()(
       // timing frame so mid-race additions never reshuffle existing starts.
       start: () => {
         const { selectedIds, durationMinutes, startSequence } = get();
-        const base = buildSchedule(classesByIds(selectedIds), durationMinutes);
+        const { customClasses } = useCustomClasses.getState();
+        const base = buildSchedule(resolveClasses(selectedIds, customClasses), durationMinutes);
         if (!base) return;
         set({
           frame: frameFromSchedule(base),
@@ -118,7 +152,8 @@ export const useRace = create<RaceState>()(
       reset: () => {
         const now = Date.now();
         const { selectedIds, durationMinutes, startSequence } = get();
-        const base = buildSchedule(classesByIds(selectedIds), durationMinutes);
+        const { customClasses } = useCustomClasses.getState();
+        const base = buildSchedule(resolveClasses(selectedIds, customClasses), durationMinutes);
         if (!base) return;
         set({
           frame: frameFromSchedule(base),

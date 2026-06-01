@@ -4,6 +4,14 @@ export type Rig = "S" | "U";
 
 export type Category = "dinghy" | "multihull" | "experimental";
 
+/** A user-defined boat class stored locally. Only name and PY are captured. */
+export interface CustomBoatClass {
+  /** Always a negative integer — prevents collisions with RYA IDs. */
+  id: number;
+  name: string;
+  py: number;
+}
+
 /** A boat class exactly as stored in the PY dataset (no derived fields). */
 export interface RawBoatClass {
   id: number;

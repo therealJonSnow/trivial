@@ -429,7 +429,7 @@ Improve real-world usability and add export for clubs that want a printed start 
 
 **Acceptance criteria:**
 - [ ] PDF export produces a readable, printable A4 start sheet
-- [ ] Audio alerts fire at correct intervals when enabled
+- [x] Audio alerts fire at correct intervals when enabled
 - [ ] Shared URL correctly restores race config on a second device
 
 ---

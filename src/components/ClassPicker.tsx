@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { classesByIds } from "@/lib/data";
+import { resolveClasses } from "@/lib/data";
+import type { CustomBoatClass } from "@/lib/types";
 import { ClassBrowser } from "./ClassBrowser";
 
 interface ClassPickerProps {
@@ -11,6 +12,10 @@ interface ClassPickerProps {
   onToggleFavourite: (id: number) => void;
   onClear: () => void;
   onClose: () => void;
+  customClasses: CustomBoatClass[];
+  onAddCustomClass: (name: string, py: number) => void;
+  onUpdateCustomClass: (id: number, name: string, py: number) => void;
+  onDeleteCustomClass: (id: number) => void;
 }
 
 /**
@@ -27,12 +32,19 @@ export function ClassPicker({
   onToggleFavourite,
   onClear,
   onClose,
+  customClasses,
+  onAddCustomClass,
+  onUpdateCustomClass,
+  onDeleteCustomClass,
 }: ClassPickerProps) {
   const [query, setQuery] = useState("");
   const count = selectedIds.length;
 
   // Chips follow selection order so the most recent additions trail the row.
-  const fleet = useMemo(() => classesByIds(selectedIds), [selectedIds]);
+  const fleet = useMemo(
+    () => resolveClasses(selectedIds, customClasses),
+    [selectedIds, customClasses],
+  );
 
   // Lock body scroll while the sheet owns the viewport, and wire Escape to close.
   useEffect(() => {
@@ -155,6 +167,10 @@ export function ClassPicker({
             onToggleFavourite={onToggleFavourite}
             query={query}
             onQueryChange={setQuery}
+            customClasses={customClasses}
+            onAddCustomClass={onAddCustomClass}
+            onUpdateCustomClass={onUpdateCustomClass}
+            onDeleteCustomClass={onDeleteCustomClass}
           />
         </div>
       </div>
