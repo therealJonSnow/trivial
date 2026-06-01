@@ -6,6 +6,8 @@ sailing clubs, using the RYA Portsmouth Yardstick (PY) handicap system.
 A race officer can set up and run a pursuit start sequence in under a minute, on a phone,
 in wind and rain — no login, no backend, works fully offline.
 
+This is still very much a WIP, please contact me for more info
+
 See [`trivial-spec.md`](./trivial-spec.md) for the full product specification and the
 Stage 1 decision record (§10).
 
