@@ -1,10 +1,16 @@
 # Trivial — Product Specification
 ### *Make pursuit trivial.*
 
-**Version:** 3.1
-**Last updated:** 2026-05-31
+**Version:** 3.2
+**Last updated:** 2026-06-01
 **Author:** Solo developer / Claude Code agent sessions
 
+> **v3.2 changelog** — Allow **adding classes mid-race** (latecomers). The timing frame
+> (scratch + first gun) is locked at race start so additions never reshuffle existing starts;
+> an addition either slots into the queue or, if its start has passed, raises a **START NOW**
+> alert. Introduces an in-race **Fleet** screen (timer ⇄ fleet navigation). Flagged **[v3.2]**.
+> See §2.8.
+>
 > **v3.1 changelog** — Replaced the configurable "warning length" with a **start-sequence
 > toggle (5-4-1 / 3-2-1)**: the selected standard dinghy-racing sequence is itself the
 > lead-in to the first gun, and tapping Start begins it immediately. Flagged **[v3.1]**.
@@ -127,13 +133,30 @@ are **collapsed into a single start entry / single GO**, listing all class names
 (The 2026 dataset contains 9 such groups, including one three-way tie and ties that cross
 categories, so this is a real, tested case — not an edge case.)
 
-### 2.8 Key Assumptions
+### 2.8 Mid-race Additions **[v3.2]**
+
+A class **can be added after the race has started** — a latecomer turning up to join in.
+This reverses v3's "no edits while running" rule, but safely: the timing reference frame
+(scratch boat + first gun) is **locked at race start**, so adding a class never reshuffles
+the boats already on the schedule.
+
+When a class is added mid-race, its start is computed in the locked frame and falls into one
+of two cases:
+- **Still upcoming** — its start time hasn't passed: it simply slots into the queue at the
+  right position. (A latecomer *faster* than the scratch gets a start *after* the scratch —
+  it starts last and chases — rather than becoming a new scratch.)
+- **Already passed** — its start time is in the past: the app raises a **START NOW** alert
+  telling the RO to send that boat across immediately. It is then shown as already started.
+
+Removal mid-race is allowed only for classes that **haven't started yet**; started classes
+are locked. Full free editing remains available before Start. Duration and start sequence are
+fixed once running.
+
+### 2.9 Key Assumptions
 
 - One fleet per race (multi-fleet is out of scope)
 - Class-based starts only (not individual boat handicaps)
-- Fixed race duration set before the race
-- **No class-list edits while a sequence is running** **[v3]** — the list is frozen at Start;
-  to change it the RO must Stop. (This intentionally overrides v2.0's "editable at any point.")
+- Fixed race duration and start sequence, set before the race
 - No manual override of individual start times (Stage 1)
 - **No upper limit on selected classes** **[v3]** — the design must scale to the full list;
   minimum 1 to start
@@ -289,8 +312,10 @@ Works offline. Operable in under one minute.
   Determines the lead-in length (5 or 3 min) and the milestone signals. There is no
   separate "warning minutes" control. **[v3.1]**
 
-**Editability:** the class list is editable freely **before** Start. Once running it is
-**frozen** until Stop. **[v3]**
+**Editability:** the class list is editable freely **before** Start. **While running** the RO
+can still **add** a class (latecomer) and **remove** not-yet-started classes via the in-race
+Fleet screen; started classes are locked. Additions are timed in the locked frame (§2.8) and
+either slot into the queue or raise a START NOW alert. **[v3.2]**
 
 ---
 
@@ -369,7 +394,6 @@ Shown on the setup screen and as a reference panel on the timer screen.
 - Audible alerts
 - Multi-fleet races
 - Manual start time adjustments
-- Mid-race class-list edits
 - Results or finish time recording
 
 ---
@@ -486,7 +510,7 @@ and reviewed by the developer.
 | 2 | Race phase = plain countdown to next gun; brief GO flash per class; RO sounds horn once |
 | 3 | Clock is wall-clock anchored (Date.now() + start timestamp + accumulated pause); offsets in ms |
 | 4 | Pause = postponement (shift all remaining starts + finish) |
-| 5 | No class-list edits while running (overrides v2.0) |
+| 5 | ~~No class-list edits while running~~ → **[v3.2]** Mid-race **add** allowed (latecomers); timed in a locked frame so existing starts never move; already-passed adds raise a START NOW alert; remove allowed only for not-yet-started classes. A dedicated in-race Fleet screen handles this. |
 | 6 | Master race clock added; finish = scratch start + duration |
 | 7 | Identical PY grouped into one start/GO |
 | 8 | No class cap (20 was illustrative); min 1 to start |

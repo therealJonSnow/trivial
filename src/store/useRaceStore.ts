@@ -7,6 +7,9 @@ import {
   type RaceClock,
   type StartSequence,
 } from "@/lib/timer";
+import { buildSchedule, frameFromSchedule } from "@/lib/schedule";
+import { classesByIds } from "@/lib/data";
+import type { ScheduleFrame } from "@/lib/types";
 
 /** Favourites — persisted under `trivial.favourites`. */
 interface FavouritesState {
@@ -42,6 +45,8 @@ interface RaceState {
   startSequence: StartSequence;
   // ephemeral
   clock: RaceClock | null;
+  /** Locked timing reference for the running race (null when not running). */
+  frame: ScheduleFrame | null;
   // config actions
   toggleSelected: (id: number) => void;
   setSelected: (ids: number[]) => void;
@@ -66,6 +71,7 @@ export const useRace = create<RaceState>()(
       durationMinutes: 60,
       startSequence: "5-4-1",
       clock: null,
+      frame: null,
 
       toggleSelected: (id) =>
         set((s) => ({
@@ -78,10 +84,16 @@ export const useRace = create<RaceState>()(
         set({ durationMinutes: clamp(Math.round(minutes), MIN_DURATION, MAX_DURATION) }),
       setStartSequence: (sequence) => set({ startSequence: sequence }),
 
-      // Tapping Start immediately begins the selected start sequence.
+      // Tapping Start immediately begins the selected start sequence and locks
+      // the timing frame so mid-race additions never reshuffle existing starts.
       start: () => {
-        if (get().selectedIds.length === 0) return;
-        set({ clock: armClock(Date.now(), get().startSequence) });
+        const { selectedIds, durationMinutes, startSequence } = get();
+        const base = buildSchedule(classesByIds(selectedIds), durationMinutes);
+        if (!base) return;
+        set({
+          frame: frameFromSchedule(base),
+          clock: armClock(Date.now(), startSequence),
+        });
       },
       pause: () => {
         const c = get().clock;
@@ -91,12 +103,19 @@ export const useRace = create<RaceState>()(
         const c = get().clock;
         if (c) set({ clock: resumeClock(c, Date.now()) });
       },
-      // Re-arm to the start of the sequence, paused, awaiting a fresh resume.
+      // Re-arm to the start of the sequence, paused. Re-lock the frame against
+      // the current fleet (which may have grown via mid-race additions).
       reset: () => {
         const now = Date.now();
-        set({ clock: pauseClock(armClock(now, get().startSequence), now) });
+        const { selectedIds, durationMinutes, startSequence } = get();
+        const base = buildSchedule(classesByIds(selectedIds), durationMinutes);
+        if (!base) return;
+        set({
+          frame: frameFromSchedule(base),
+          clock: pauseClock(armClock(now, startSequence), now),
+        });
       },
-      stop: () => set({ clock: null }),
+      stop: () => set({ clock: null, frame: null }),
     }),
     {
       name: "trivial.lastRace",

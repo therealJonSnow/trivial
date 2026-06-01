@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SetupScreen } from "@/components/SetupScreen";
-import { TimerScreen } from "@/components/TimerScreen";
+import { RaceShell } from "@/components/RaceShell";
 import { useRace } from "@/store/useRaceStore";
 
 export default function Home() {
@@ -14,5 +14,5 @@ export default function Home() {
   const clock = useRace((s) => s.clock);
 
   if (!mounted) return <div className="min-h-dvh bg-ground" />;
-  return clock ? <TimerScreen /> : <SetupScreen />;
+  return clock ? <RaceShell /> : <SetupScreen />;
 }

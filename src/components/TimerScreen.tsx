@@ -19,12 +19,17 @@ function milestoneLabel(ms: number | null): string | null {
   return `${minutes} MINUTE${minutes === 1 ? "" : "S"}`;
 }
 
-export function TimerScreen() {
-  const { clock, selectedIds, durationMinutes, pause, resume, reset, stop } = useRace();
+interface TimerScreenProps {
+  onOpenFleet: () => void;
+}
+
+export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
+  const { clock, frame, selectedIds, durationMinutes, pause, resume, reset, stop } =
+    useRace();
 
   const schedule = useMemo(
-    () => buildSchedule(classesByIds(selectedIds), durationMinutes),
-    [selectedIds, durationMinutes],
+    () => buildSchedule(classesByIds(selectedIds), durationMinutes, frame ?? undefined),
+    [selectedIds, durationMinutes, frame],
   );
 
   const paused = clock?.pausedAtEpoch != null;
@@ -52,13 +57,22 @@ export function TimerScreen() {
         isGo ? "bg-imminent" : "bg-ground"
       }`}
     >
-      {/* master race clock */}
-      <div
-        className={`flex items-center justify-between font-mono text-xs uppercase tracking-wider ${
-          isGo ? "text-ground/70" : "text-muted"
-        }`}
-      >
-        <span>
+      {/* master race clock + fleet entry */}
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={onOpenFleet}
+          className={`flex h-9 shrink-0 items-center rounded-lg border px-3 font-mono text-xs font-bold uppercase tracking-wider ${
+            isGo ? "border-ground/40 text-ground/80" : "border-line text-muted"
+          }`}
+        >
+          + Boat
+        </button>
+        <span
+          className={`min-w-0 truncate text-center font-mono text-xs uppercase tracking-wider ${
+            isGo ? "text-ground/70" : "text-muted"
+          }`}
+        >
           {paused
             ? "Postponed"
             : isWarning
@@ -66,9 +80,15 @@ export function TimerScreen() {
               : isFinished
                 ? "Finished"
                 : "Racing"}
-          {!isWarning && ` · ${formatMmSs(Math.max(0, view.msSinceFirstGun))} elapsed`}
+          {!isWarning && ` · ${formatMmSs(Math.max(0, view.msSinceFirstGun))}`}
         </span>
-        <span>finish {formatMmSs(view.toFinishMs)}</span>
+        <span
+          className={`shrink-0 font-mono text-xs uppercase tracking-wider ${
+            isGo ? "text-ground/70" : "text-muted"
+          }`}
+        >
+          fin {formatMmSs(view.toFinishMs)}
+        </span>
       </div>
 
       {/* primary display */}

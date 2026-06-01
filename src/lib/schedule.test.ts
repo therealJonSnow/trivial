@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { computeOffsetMs, buildSchedule, startTime } from "./schedule";
+import {
+  computeOffsetMs,
+  buildSchedule,
+  startTime,
+  frameFromSchedule,
+} from "./schedule";
 import { formatMmSs } from "./format";
 import type { BoatClass, Category } from "./types";
 
@@ -133,6 +138,59 @@ describe("buildSchedule", () => {
     );
     const tied = s?.starts.find((x) => x.py === 1051);
     expect(tied?.classes).toHaveLength(3);
+  });
+});
+
+describe("mid-race additions (locked frame)", () => {
+  const base = buildSchedule(
+    [boat("RS800", 797), boat("Mirror", 1364), boat("Laser", 1100)],
+    60,
+  )!;
+  const frame = frameFromSchedule(base);
+
+  function startFor(schedule: ReturnType<typeof buildSchedule>, name: string) {
+    return schedule!.starts.find((s) => s.classes.some((c) => c.name === name));
+  }
+
+  it("snapshots the locked scratch/first-gun reference", () => {
+    expect(frame.scratchPy).toBe(797);
+    expect(frame.maxOffsetMs).toBe(base.maxOffsetMs);
+    expect(frame.durationMs).toBe(60 * 60_000);
+  });
+
+  it("does not move existing starts when a class is added", () => {
+    const withAdd = buildSchedule(
+      [boat("RS800", 797), boat("Mirror", 1364), boat("Laser", 1100), boat("Solo", 1142)],
+      60,
+      frame,
+    );
+    for (const name of ["RS800", "Mirror", "Laser"]) {
+      expect(startFor(withAdd, name)?.startFromFirstGunMs).toBe(
+        startFor(base, name)?.startFromFirstGunMs,
+      );
+    }
+  });
+
+  it("slots a late entrant FASTER than the scratch at the back (starts last)", () => {
+    const withAdd = buildSchedule(
+      [boat("RS800", 797), boat("Mirror", 1364), boat("Foiler", 700)],
+      60,
+      frame,
+    )!;
+    const foiler = startFor(withAdd, "Foiler")!;
+    const scratch = startFor(withAdd, "RS800")!;
+    expect(foiler.startFromFirstGunMs).toBeGreaterThan(scratch.startFromFirstGunMs);
+    expect(withAdd.starts.at(-1)?.classes[0]?.name).toBe("Foiler");
+  });
+
+  it("times a late entrant SLOWER than the fleet before the first gun (already passed)", () => {
+    const withAdd = buildSchedule(
+      [boat("RS800", 797), boat("Mirror", 1364), boat("Heavy", 1600)],
+      60,
+      frame,
+    )!;
+    // start time is negative → before the first gun → classified 'already started'
+    expect(startFor(withAdd, "Heavy")!.startFromFirstGunMs).toBeLessThan(0);
   });
 });
 

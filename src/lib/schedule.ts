@@ -1,4 +1,4 @@
-import type { BoatClass, ScheduledStart, Schedule } from "./types";
+import type { BoatClass, ScheduledStart, Schedule, ScheduleFrame } from "./types";
 
 const MS_PER_MIN = 60_000;
 
@@ -35,41 +35,52 @@ function groupByPy(classes: BoatClass[]): Map<number, BoatClass[]> {
  *
  * - Scratch boat = lowest selected PY (offset 00:00, starts last).
  * - Classes sharing a PY are collapsed into one grouped start.
- * - Starts are ordered earliest-first (largest offset first).
+ * - Starts are ordered earliest-first.
  * - The first gun is the earliest start; all timing is relative to it.
+ *
+ * Pass `frame` (the snapshot taken at race start) to time against a LOCKED
+ * scratch + first gun. This keeps existing starts fixed when classes are added
+ * mid-race: a late entrant faster than the original scratch gets a negative
+ * offset and slots in *after* the scratch; one slower than the whole fleet gets
+ * a start time before the first gun (already passed). Without a frame (setup),
+ * the scratch and first gun are derived from the selection.
  *
  * Returns `null` when the fleet is empty (min 1 class required to race).
  */
 export function buildSchedule(
   selected: BoatClass[],
   durationMinutes: number,
+  frame?: ScheduleFrame,
 ): Schedule | null {
   if (selected.length === 0) return null;
 
-  const durationMs = durationMinutes * MS_PER_MIN;
-  const scratchPy = Math.min(...selected.map((c) => c.py));
+  const durationMs = frame ? frame.durationMs : durationMinutes * MS_PER_MIN;
+  const scratchPy = frame ? frame.scratchPy : Math.min(...selected.map((c) => c.py));
   const groups = groupByPy(selected);
 
-  const unordered = [...groups.entries()].map(([py, classes]) => ({
+  const entries = [...groups.entries()].map(([py, classes]) => ({
     py,
     classes,
     offsetMs: computeOffsetMs(durationMs, scratchPy, py),
     isScratch: py === scratchPy,
   }));
 
-  // earliest first = largest offset first
-  unordered.sort((a, b) => b.offsetMs - a.offsetMs);
+  const maxOffsetMs = frame
+    ? frame.maxOffsetMs
+    : Math.max(...entries.map((e) => e.offsetMs));
 
-  const maxOffsetMs = unordered.length > 0 ? (unordered[0]?.offsetMs ?? 0) : 0;
-
-  const starts: ScheduledStart[] = unordered.map((g, i) => ({
-    order: i + 1,
-    classes: g.classes,
-    py: g.py,
-    offsetMs: g.offsetMs,
-    startFromFirstGunMs: maxOffsetMs - g.offsetMs,
-    isScratch: g.isScratch,
-  }));
+  const starts: ScheduledStart[] = entries
+    .map((e) => ({ ...e, startFromFirstGunMs: maxOffsetMs - e.offsetMs }))
+    // earliest first; works for negative/over-max times from mid-race adds
+    .sort((a, b) => a.startFromFirstGunMs - b.startFromFirstGunMs)
+    .map((e, i) => ({
+      order: i + 1,
+      classes: e.classes,
+      py: e.py,
+      offsetMs: e.offsetMs,
+      startFromFirstGunMs: e.startFromFirstGunMs,
+      isScratch: e.isScratch,
+    }));
 
   return {
     starts,
@@ -77,6 +88,15 @@ export function buildSchedule(
     maxOffsetMs,
     durationMs,
     finishFromFirstGunMs: maxOffsetMs + durationMs,
+  };
+}
+
+/** Snapshot the locked timing reference from a freshly built schedule. */
+export function frameFromSchedule(schedule: Schedule): ScheduleFrame {
+  return {
+    scratchPy: schedule.scratchPy,
+    maxOffsetMs: schedule.maxOffsetMs,
+    durationMs: schedule.durationMs,
   };
 }
 

@@ -41,6 +41,19 @@ Stage 1 decision record (§10).
 - **Master clock.** The top bar shows elapsed race time and time to finish (finish =
   scratch start + duration).
 
+### Add a latecomer mid-race
+
+Someone turn up after the start? Tap **+ Boat** (top of the timer) to open the **Fleet**
+screen, then tap their class:
+
+- If their start **hasn't passed yet**, they drop straight into the queue at the right time —
+  even a boat faster than the scratch, which simply starts at the back and chases.
+- If their start has **already passed**, a big **START NOW** alert tells you to send them
+  across the line immediately.
+
+Existing starts never move when you add a boat. You can also remove a class that hasn't
+started yet; started classes are locked. Tap **Back to race** to return to the timer.
+
 ### Controls
 
 - **Pause = postponement (AP).** Freezes the clock; on **Resume**, every start still to come

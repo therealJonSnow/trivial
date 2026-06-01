@@ -63,3 +63,14 @@ export interface Schedule {
   /** Finish relative to the first gun: maxOffsetMs + durationMs. */
   finishFromFirstGunMs: number;
 }
+
+/**
+ * The locked timing reference, snapshotted at race start. Classes added mid-race
+ * are timed against this frame so existing starts never reshuffle (the scratch
+ * boat and first gun stay fixed for the life of the race).
+ */
+export interface ScheduleFrame {
+  scratchPy: number;
+  maxOffsetMs: number;
+  durationMs: number;
+}
