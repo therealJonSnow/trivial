@@ -1,7 +1,16 @@
 import type { Schedule, ScheduledStart } from "./types";
 
-/** How long a GO flash holds before retargeting (unless the next gun is sooner). */
+/** How long a boat-start GO flash holds before retargeting (unless the next gun is sooner). */
 export const GO_HOLD_MS = 5_000;
+
+/** How long a sequence-signal (5/4/1) takeover holds before resuming the countdown. */
+export const SIGNAL_HOLD_MS = 3_000;
+
+/** Anticipation window: flash + count-in begins this long before any horn. */
+export const IMMINENT_MS = 10_000;
+
+/** Default lead-in between confirming Start and the first signal (the 10s count-in). */
+export const PRE_ROLL_MS = 10_000;
 
 /**
  * The two standard dinghy-racing start countdown sequences. The selected
@@ -19,18 +28,20 @@ export const SEQUENCES: Record<
   "3-2-1": { warningMs: 3 * 60_000, milestonesMs: [3 * 60_000, 2 * 60_000, 60_000, 0] },
 };
 
-export type Phase = "warning" | "race" | "finished";
+export type Phase = "preroll" | "warning" | "race" | "finished";
 
 /**
  * Wall-clock anchors for a running race. Every derived value is computed from
  * `Date.now()` against these anchors — never from accumulated interval ticks.
  */
 export interface RaceClock {
-  /** Epoch ms when Start was tapped (the start sequence begins immediately). */
+  /** Epoch ms when Start was confirmed (the pre-roll count-in begins immediately). */
   startedAtEpoch: number;
   /** Selected start sequence. */
   sequence: StartSequence;
-  /** Sequence lead-in length, ms (first gun = start + warning, shifted by pauses). */
+  /** Count-in lead before the first signal, ms (the "GET READY" 10s). */
+  preRollMs: number;
+  /** Sequence lead-in length, ms (first gun = start + preRoll + warning, shifted by pauses). */
   warningMs: number;
   /** Total paused duration already absorbed, ms (postponement model). */
   accumulatedPauseMs: number;
@@ -48,8 +59,20 @@ export interface TimerView {
   countdownMs: number;
   /** During warning, the milestone just reached (ms value) or null. */
   activeMilestoneMs: number | null;
-  /** A start currently in its GO flash window, or null. */
+  /** A boat start currently in its GO flash window, or null. */
   flashing: ScheduledStart | null;
+  /** A sequence signal (5/4/1, in ms) currently in its takeover window, or null. */
+  signalFlashMs: number | null;
+  /**
+   * Stable id of the active takeover (boat GO or sequence signal), or null.
+   * Used to fire the long horn exactly once on each gun's rising edge.
+   */
+  takeoverKey: string | null;
+  /**
+   * ms until the next horn of ANY kind — sequence signal or boat start — or
+   * null once none remain ahead. Drives the anticipation strobe + count-in beeps.
+   */
+  msToNextHorn: number | null;
   /** Orders already fired (started). */
   startedOrders: number[];
   /** ms remaining until the finish horn (clamped ≥ 0). */
@@ -57,9 +80,11 @@ export interface TimerView {
   paused: boolean;
 }
 
-/** Epoch ms of the first gun, accounting for accumulated postponement. */
+/** Epoch ms of the first gun, accounting for the count-in pre-roll + postponement. */
 export function firstGunEpoch(clock: RaceClock): number {
-  return clock.startedAtEpoch + clock.warningMs + clock.accumulatedPauseMs;
+  return (
+    clock.startedAtEpoch + clock.preRollMs + clock.warningMs + clock.accumulatedPauseMs
+  );
 }
 
 /** The reference "now" used for arithmetic — frozen at the pause instant when paused. */
@@ -85,30 +110,38 @@ export function deriveTimer(
     else if (nextStart === null) nextStart = s;
   }
 
+  // Sequence signals sound at -m before the first gun (the 0-ms milestone IS the
+  // first gun, which is also boat start order 1 — counted as a boat start, not here).
+  const signalsMs = SEQUENCES[clock.sequence].milestonesMs.filter((m) => m > 0);
+
   let phase: Phase;
   if (msSinceFirstGun >= schedule.finishFromFirstGunMs) phase = "finished";
+  else if (msSinceFirstGun < -clock.warningMs) phase = "preroll";
   else if (msSinceFirstGun < 0) phase = "warning";
   else phase = "race";
 
-  // Big countdown target: first gun during warning, else the next start.
+  // Big countdown target: first signal during pre-roll, first gun during warning,
+  // else the next boat start (or the finish once all have started).
   const countdownMs =
-    phase === "warning"
-      ? -msSinceFirstGun
-      : nextStart
-        ? nextStart.startFromFirstGunMs - msSinceFirstGun
-        : schedule.finishFromFirstGunMs - msSinceFirstGun;
+    phase === "preroll"
+      ? -msSinceFirstGun - clock.warningMs
+      : phase === "warning"
+        ? -msSinceFirstGun
+        : nextStart
+          ? nextStart.startFromFirstGunMs - msSinceFirstGun
+          : schedule.finishFromFirstGunMs - msSinceFirstGun;
 
   // Warning milestone emphasis: the current signal segment for this sequence.
   let activeMilestoneMs: number | null = null;
   if (phase === "warning") {
     for (const m of SEQUENCES[clock.sequence].milestonesMs) {
-      if (countdownMs <= m) activeMilestoneMs = m;
+      if (-msSinceFirstGun <= m) activeMilestoneMs = m;
     }
   }
 
-  // GO flash: the most recent start fired within GO_HOLD, unless the next gun is sooner.
+  // Boat-start GO flash: most recent start fired within GO_HOLD, unless the next gun is sooner.
   let flashing: ScheduledStart | null = null;
-  if (phase !== "warning") {
+  if (phase === "race" || phase === "finished") {
     for (let i = schedule.starts.length - 1; i >= 0; i--) {
       const s = schedule.starts[i]!;
       const sinceFire = msSinceFirstGun - s.startFromFirstGunMs;
@@ -122,6 +155,31 @@ export function deriveTimer(
     }
   }
 
+  // Sequence-signal takeover: a 5/4/1 signal fired within SIGNAL_HOLD (warning only;
+  // signals are ≥ 60s apart so holds never collide).
+  let signalFlashMs: number | null = null;
+  if (phase === "warning") {
+    for (const m of signalsMs) {
+      const sinceFire = msSinceFirstGun + m;
+      if (sinceFire >= 0 && sinceFire < SIGNAL_HOLD_MS) signalFlashMs = m;
+    }
+  }
+
+  // Next horn of any kind: nearest upcoming sequence signal (−m) or boat start.
+  let msToNextHorn: number | null = null;
+  const consider = (offset: number) => {
+    const dt = offset - msSinceFirstGun;
+    if (dt > 0 && (msToNextHorn === null || dt < msToNextHorn)) msToNextHorn = dt;
+  };
+  for (const m of signalsMs) consider(-m);
+  for (const s of schedule.starts) consider(s.startFromFirstGunMs);
+
+  const takeoverKey = flashing
+    ? `boat:${flashing.order}`
+    : signalFlashMs !== null
+      ? `sig:${signalFlashMs}`
+      : null;
+
   return {
     phase,
     msSinceFirstGun,
@@ -129,6 +187,9 @@ export function deriveTimer(
     countdownMs: Math.max(0, countdownMs),
     activeMilestoneMs,
     flashing,
+    signalFlashMs,
+    takeoverKey,
+    msToNextHorn,
     startedOrders,
     toFinishMs: Math.max(0, schedule.finishFromFirstGunMs - msSinceFirstGun),
     paused,
@@ -151,11 +212,20 @@ export function resumeClock(clock: RaceClock, now: number): RaceClock {
   };
 }
 
-/** A fresh clock armed at `now` for the given start sequence. */
-export function armClock(now: number, sequence: StartSequence): RaceClock {
+/**
+ * A fresh clock armed at `now` for the given start sequence. `preRollMs` is the
+ * count-in lead before the first signal (the "GET READY" window); pass 0 to begin
+ * the sequence immediately.
+ */
+export function armClock(
+  now: number,
+  sequence: StartSequence,
+  preRollMs = 0,
+): RaceClock {
   return {
     startedAtEpoch: now,
     sequence,
+    preRollMs,
     warningMs: SEQUENCES[sequence].warningMs,
     accumulatedPauseMs: 0,
     pausedAtEpoch: null,

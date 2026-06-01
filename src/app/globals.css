@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 html,
@@ -48,6 +48,21 @@ body {
 }
 .animate-pop-in {
   animation: pop-in 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Anticipation strobe: ~1Hz pulse on the countdown in the 10s before a horn,
+   in step with the per-second count-in beeps. */
+@keyframes strobe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+.animate-strobe {
+  animation: strobe 1s steps(2, jump-none) infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

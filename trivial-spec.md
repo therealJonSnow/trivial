@@ -271,14 +271,14 @@ A fully functional pursuit race calculator and live countdown timer. No backend.
 Works offline. Operable in under one minute.
 
 ### Acceptance criteria
-- [ ] RO can select classes, set duration, and reach the timer screen in under 5 taps
-- [ ] Start offsets are calculated correctly per §2.2 (unit-tested, incl. the 24:56 example)
-- [ ] Start sequence (5-4-1 or 3-2-1, toggle) counts to the first gun with its milestone emphasis
-- [ ] Race phase shows the next-start countdown + a small master race clock without manual scrolling
-- [ ] Identical-PY classes are grouped into a single start
-- [ ] Pause (postponement), Resume, Reset (re-arm to sequence start, paused), and Stop all function
-- [ ] A class can be added mid-race: still-upcoming → into the queue; already-passed → START NOW alert (§2.8)
-- [ ] Destructive controls (Reset, Stop) require a press-and-hold confirmation
+- [x] RO can select classes, set duration, and reach the timer screen in under 5 taps
+- [x] Start offsets are calculated correctly per §2.2 (unit-tested, incl. the 24:56 example)
+- [x] Start sequence (5-4-1 or 3-2-1, toggle) counts to the first gun with its milestone emphasis
+- [x] Race phase shows the next-start countdown + a small master race clock without manual scrolling
+- [x] Identical-PY classes are grouped into a single start
+- [x] Pause (postponement), Resume, Reset (re-arm to sequence start, paused), and Stop all function
+- [x] A class can be added mid-race: still-upcoming → into the queue; already-passed → START NOW alert (§2.8)
+- [x] Destructive controls (Reset, Stop) require a press-and-hold confirmation
 - [ ] App works fully offline after first load
 - [ ] Screen does not sleep during an active timer session (Wake Lock)
 - [ ] Favourites persist across sessions via LocalStorage

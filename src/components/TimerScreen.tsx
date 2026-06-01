@@ -1,17 +1,17 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { classesByIds } from "@/lib/data";
 import { buildSchedule, startTime } from "@/lib/schedule";
-import { deriveTimer, firstGunEpoch } from "@/lib/timer";
+import { deriveTimer, firstGunEpoch, IMMINENT_MS } from "@/lib/timer";
 import { formatCountdown, formatMmSs, formatClock, ordinal } from "@/lib/format";
+import { unlockAudio } from "@/lib/audio";
 import { useRace } from "@/store/useRaceStore";
 import { useNow } from "@/hooks/useNow";
 import { useWakeLock } from "@/hooks/useWakeLock";
+import { useRaceAudio } from "@/hooks/useRaceAudio";
 import { HoldButton } from "./HoldButton";
-
-/** Anticipation cue: go amber in the final seconds before any gun. */
-const IMMINENT_MS = 10_000;
+import { StartConfirm } from "./StartConfirm";
 
 function milestoneLabel(ms: number | null): string | null {
   if (ms === null || ms <= 0) return null;
@@ -19,13 +19,52 @@ function milestoneLabel(ms: number | null): string | null {
   return `${minutes} MINUTE${minutes === 1 ? "" : "S"}`;
 }
 
+function SpeakerIcon({ muted }: { muted: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
+      <path
+        d="M4 9v6h4l5 4V5L8 9H4z"
+        fill="currentColor"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      {muted ? (
+        <path d="M17 9l4 6M21 9l-4 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      ) : (
+        <path
+          d="M16.5 8.5a5 5 0 010 7M18.5 6.5a8 8 0 010 11"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+      )}
+    </svg>
+  );
+}
+
 interface TimerScreenProps {
   onOpenFleet: () => void;
 }
 
 export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
-  const { clock, frame, selectedIds, durationMinutes, pause, resume, reset, stop } =
-    useRace();
+  const {
+    clock,
+    frame,
+    selectedIds,
+    durationMinutes,
+    startSequence,
+    muted,
+    awaitingStart,
+    toggleMuted,
+    start,
+    pause,
+    resume,
+    reset,
+    stop,
+  } = useRace();
+
+  const [confirming, setConfirming] = useState(false);
 
   const schedule = useMemo(
     () => buildSchedule(classesByIds(selectedIds), durationMinutes, frame ?? undefined),
@@ -36,55 +75,93 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
   useWakeLock(clock !== null);
   const now = useNow(clock !== null && !paused);
 
-  if (!clock || !schedule) return null;
+  const view = clock && schedule ? deriveTimer(clock, schedule, now) : null;
 
-  const view = deriveTimer(clock, schedule, now);
+  // Only sound cues while actively counting; pausing/awaiting freezes them.
+  const live = view !== null && !paused;
+  useRaceAudio(
+    live ? view!.msToNextHorn : null,
+    live ? view!.takeoverKey : null,
+    muted,
+  );
+
+  if (!clock || !schedule || !view) return null;
+
   const gun = firstGunEpoch(clock);
+  const isGo = view.flashing !== null;
+  const isSignal = !isGo && view.signalFlashMs !== null;
+  const isTakeover = isGo || isSignal;
+  const isPreroll = view.phase === "preroll";
   const isWarning = view.phase === "warning";
   const isFinished = view.phase === "finished";
-  const isGo = view.flashing !== null;
-  const isImminent = !isGo && !isFinished && view.countdownMs <= IMMINENT_MS;
+  const isImminent =
+    !isTakeover &&
+    !isFinished &&
+    view.msToNextHorn !== null &&
+    view.msToNextHorn <= IMMINENT_MS;
 
   const upcoming = schedule.starts
     .filter((s) => !view.startedOrders.includes(s.order))
     .slice(0, 4);
 
   const primaryColour = isImminent ? "text-imminent" : isWarning ? "text-ink" : "text-next";
+  const strobe = isImminent && !paused ? "motion-safe:animate-strobe" : "";
 
   return (
     <div
       className={`mx-auto flex min-h-dvh max-w-md flex-col px-4 py-3 transition-colors duration-150 ${
-        isGo ? "bg-imminent" : "bg-ground"
+        isTakeover ? "bg-imminent" : "bg-ground"
       }`}
     >
-      {/* master race clock + fleet entry */}
+      {/* master race clock + fleet entry + mute */}
       <div className="flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={onOpenFleet}
-          className={`flex h-9 shrink-0 items-center rounded-lg border px-3 font-mono text-xs font-bold uppercase tracking-wider ${
-            isGo ? "border-ground/40 text-ground/80" : "border-line text-muted"
-          }`}
-        >
-          + Boat
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={onOpenFleet}
+            className={`flex h-9 items-center rounded-lg border px-3 font-mono text-xs font-bold uppercase tracking-wider ${
+              isTakeover ? "border-ground/40 text-ground/80" : "border-line text-muted"
+            }`}
+          >
+            + Boat
+          </button>
+          <button
+            type="button"
+            onClick={toggleMuted}
+            aria-label={muted ? "Unmute alerts" : "Mute alerts"}
+            aria-pressed={muted}
+            className={`flex h-9 w-9 items-center justify-center rounded-lg border ${
+              isTakeover
+                ? "border-ground/40 text-ground/80"
+                : muted
+                  ? "border-line text-muted"
+                  : "border-line text-imminent"
+            }`}
+          >
+            <SpeakerIcon muted={muted} />
+          </button>
+        </div>
         <span
           className={`min-w-0 truncate text-center font-mono text-xs uppercase tracking-wider ${
-            isGo ? "text-ground/70" : "text-muted"
+            isTakeover ? "text-ground/70" : "text-muted"
           }`}
         >
-          {paused
-            ? "Postponed"
-            : isWarning
-              ? `${clock.sequence} sequence`
-              : isFinished
-                ? "Finished"
-                : "Racing"}
-          {!isWarning && ` · ${formatMmSs(Math.max(0, view.msSinceFirstGun))}`}
+          {awaitingStart
+            ? "Ready"
+            : paused
+              ? "Postponed"
+              : isPreroll
+                ? "Get ready"
+                : isWarning
+                  ? `${clock.sequence} sequence`
+                  : isFinished
+                    ? "Finished"
+                    : "Racing"}
+          {view.phase === "race" && ` · ${formatMmSs(Math.max(0, view.msSinceFirstGun))}`}
         </span>
         <span
           className={`shrink-0 font-mono text-xs uppercase tracking-wider ${
-            isGo ? "text-ground/70" : "text-muted"
+            isTakeover ? "text-ground/70" : "text-muted"
           }`}
         >
           fin {formatMmSs(view.toFinishMs)}
@@ -105,11 +182,37 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
               Sound the horn
             </div>
           </>
+        ) : isSignal ? (
+          <>
+            <div className="text-sm font-bold uppercase tracking-[0.4em] text-ground/70">
+              Signal
+            </div>
+            <div className="mt-1 font-mono text-clock font-black leading-none tabular-nums text-ground">
+              {formatMmSs(view.signalFlashMs!)}
+            </div>
+            <div className="mt-1 text-sm font-semibold uppercase tracking-[0.3em] text-ground/70">
+              Sound the horn
+            </div>
+          </>
         ) : isFinished ? (
           <>
             <div className="font-mono text-clock-sm font-black text-started">FINISH</div>
             <div className="mt-2 text-sm uppercase tracking-widest text-muted">
               Race complete
+            </div>
+          </>
+        ) : isPreroll ? (
+          <>
+            <div className="mb-3 text-sm font-bold uppercase tracking-[0.4em] text-imminent">
+              Get ready
+            </div>
+            <div
+              className={`font-mono text-clock font-black leading-none tabular-nums text-imminent ${strobe}`}
+            >
+              {formatCountdown(view.countdownMs)}
+            </div>
+            <div className="mt-2 text-xl uppercase tracking-widest text-muted">
+              to first signal
             </div>
           </>
         ) : (
@@ -120,7 +223,7 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
               </div>
             )}
             <div
-              className={`font-mono text-clock font-black leading-none tabular-nums ${primaryColour} ${
+              className={`font-mono text-clock font-black leading-none tabular-nums ${primaryColour} ${strobe} ${
                 paused ? "opacity-40" : ""
               }`}
             >
@@ -143,7 +246,7 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
       </div>
 
       {/* upcoming queue */}
-      {!isGo && upcoming.length > 0 && (
+      {!isTakeover && upcoming.length > 0 && (
         <ul className="mb-3 max-h-44 space-y-1 overflow-y-auto">
           {upcoming.map((s) => {
             const isNext = view.nextStart?.order === s.order;
@@ -161,9 +264,6 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
                   className={`min-w-0 flex-1 truncate text-sm ${isNext ? "text-next" : "text-muted"}`}
                 >
                   {s.classes.map((c) => c.name).join(" + ")}
-                  {s.isScratch && (
-                    <span className="ml-1 text-[10px] uppercase text-muted">scratch</span>
-                  )}
                 </span>
                 <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
                   {formatClock(startTime(s, gun))}
@@ -176,20 +276,42 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
 
       {/* controls */}
       <div className="space-y-2">
-        <button
-          type="button"
-          onClick={paused ? resume : pause}
-          className={`h-16 w-full rounded-2xl text-xl font-bold uppercase tracking-wider ${
-            paused ? "bg-started text-ground" : "border border-line bg-panel text-ink"
-          }`}
-        >
-          {paused ? "Resume" : "Pause"}
-        </button>
+        {awaitingStart ? (
+          <button
+            type="button"
+            onClick={() => setConfirming(true)}
+            className="h-16 w-full rounded-2xl bg-imminent text-xl font-bold uppercase tracking-wider text-ground"
+          >
+            Start sequence
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={paused ? resume : pause}
+            className={`h-16 w-full rounded-2xl text-xl font-bold uppercase tracking-wider ${
+              paused ? "bg-started text-ground" : "border border-line bg-panel text-ink"
+            }`}
+          >
+            {paused ? "Resume" : "Pause"}
+          </button>
+        )}
         <div className="grid grid-cols-2 gap-2">
           <HoldButton label="Reset" onComplete={reset} />
           <HoldButton label="Stop" onComplete={stop} />
         </div>
       </div>
+
+      {confirming && (
+        <StartConfirm
+          sequence={startSequence}
+          onConfirm={() => {
+            unlockAudio();
+            setConfirming(false);
+            start();
+          }}
+          onCancel={() => setConfirming(false)}
+        />
+      )}
     </div>
   );
 }

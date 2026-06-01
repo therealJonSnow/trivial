@@ -4,6 +4,7 @@ import {
   armClock,
   pauseClock,
   resumeClock,
+  PRE_ROLL_MS,
   type RaceClock,
   type StartSequence,
 } from "@/lib/timer";
@@ -43,15 +44,19 @@ interface RaceState {
   selectedIds: number[];
   durationMinutes: number;
   startSequence: StartSequence;
+  muted: boolean;
   // ephemeral
   clock: RaceClock | null;
   /** Locked timing reference for the running race (null when not running). */
   frame: ScheduleFrame | null;
+  /** True when armed-but-not-running: a fresh reset awaiting a confirmed start. */
+  awaitingStart: boolean;
   // config actions
   toggleSelected: (id: number) => void;
   setSelected: (ids: number[]) => void;
   setDuration: (minutes: number) => void;
   setStartSequence: (sequence: StartSequence) => void;
+  toggleMuted: () => void;
   // race actions
   start: () => void;
   pause: () => void;
@@ -70,8 +75,10 @@ export const useRace = create<RaceState>()(
       selectedIds: [],
       durationMinutes: 60,
       startSequence: "5-4-1",
+      muted: false,
       clock: null,
       frame: null,
+      awaitingStart: false,
 
       toggleSelected: (id) =>
         set((s) => ({
@@ -83,16 +90,18 @@ export const useRace = create<RaceState>()(
       setDuration: (minutes) =>
         set({ durationMinutes: clamp(Math.round(minutes), MIN_DURATION, MAX_DURATION) }),
       setStartSequence: (sequence) => set({ startSequence: sequence }),
+      toggleMuted: () => set((s) => ({ muted: !s.muted })),
 
-      // Tapping Start immediately begins the selected start sequence and locks
-      // the timing frame so mid-race additions never reshuffle existing starts.
+      // Confirming Start begins a 10s count-in to the first signal and locks the
+      // timing frame so mid-race additions never reshuffle existing starts.
       start: () => {
         const { selectedIds, durationMinutes, startSequence } = get();
         const base = buildSchedule(classesByIds(selectedIds), durationMinutes);
         if (!base) return;
         set({
           frame: frameFromSchedule(base),
-          clock: armClock(Date.now(), startSequence),
+          clock: armClock(Date.now(), startSequence, PRE_ROLL_MS),
+          awaitingStart: false,
         });
       },
       pause: () => {
@@ -103,8 +112,9 @@ export const useRace = create<RaceState>()(
         const c = get().clock;
         if (c) set({ clock: resumeClock(c, Date.now()) });
       },
-      // Re-arm to the start of the sequence, paused. Re-lock the frame against
-      // the current fleet (which may have grown via mid-race additions).
+      // Re-arm to the start of the sequence, paused and awaiting a confirmed
+      // restart (so the count-in + confirm gate apply again, not an instant go).
+      // Re-lock the frame against the current fleet (which may have grown).
       reset: () => {
         const now = Date.now();
         const { selectedIds, durationMinutes, startSequence } = get();
@@ -113,9 +123,10 @@ export const useRace = create<RaceState>()(
         set({
           frame: frameFromSchedule(base),
           clock: pauseClock(armClock(now, startSequence), now),
+          awaitingStart: true,
         });
       },
-      stop: () => set({ clock: null, frame: null }),
+      stop: () => set({ clock: null, frame: null, awaitingStart: false }),
     }),
     {
       name: "trivial.lastRace",
@@ -123,6 +134,7 @@ export const useRace = create<RaceState>()(
         selectedIds: s.selectedIds,
         durationMinutes: s.durationMinutes,
         startSequence: s.startSequence,
+        muted: s.muted,
       }),
     },
   ),

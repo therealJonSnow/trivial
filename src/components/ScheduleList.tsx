@@ -65,9 +65,6 @@ export function ScheduleList({
               </span>
               <span className={`min-w-0 flex-1 truncate text-sm ${STATUS_TEXT[status]}`}>
                 {s.classes.map((c) => c.name).join(" + ")}
-                {s.isScratch && (
-                  <span className="ml-1 text-[10px] uppercase text-muted">scratch</span>
-                )}
               </span>
               <span className="w-12 shrink-0 text-right font-mono text-xs text-muted">
                 {s.py}

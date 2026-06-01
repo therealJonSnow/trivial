@@ -6,6 +6,7 @@ import {
   resumeClock,
   firstGunEpoch,
   GO_HOLD_MS,
+  PRE_ROLL_MS,
 } from "./timer";
 import { buildSchedule } from "./schedule";
 import type { BoatClass } from "./types";
@@ -81,6 +82,58 @@ describe("phase detection", () => {
     const v = deriveTimer(clock, schedule, GUN + schedule.finishFromFirstGunMs);
     expect(v.phase).toBe("finished");
     expect(v.toFinishMs).toBe(0);
+  });
+});
+
+describe("pre-roll count-in", () => {
+  // Armed with a 10s pre-roll so firstGunEpoch === GUN.
+  const pre = armClock(GUN - WARN - PRE_ROLL_MS, "5-4-1", PRE_ROLL_MS);
+
+  it("firstGunEpoch includes the pre-roll lead", () => {
+    expect(firstGunEpoch(pre)).toBe(GUN);
+  });
+
+  it("is in the preroll phase during the count-in, counting to the first signal", () => {
+    const v = deriveTimer(pre, schedule, GUN - WARN - PRE_ROLL_MS); // just confirmed
+    expect(v.phase).toBe("preroll");
+    expect(v.countdownMs).toBe(PRE_ROLL_MS); // 0:10 to first signal, not 5:10
+    expect(v.msToNextHorn).toBe(PRE_ROLL_MS); // first signal is the next horn
+  });
+
+  it("transitions to warning at the first signal", () => {
+    const v = deriveTimer(pre, schedule, GUN - WARN); // end of count-in
+    expect(v.phase).toBe("warning");
+    expect(v.countdownMs).toBe(WARN);
+  });
+});
+
+describe("horn anticipation + takeover", () => {
+  it("a sequence signal takes over for SIGNAL_HOLD, then resumes", () => {
+    const atSignal = deriveTimer(clock, schedule, GUN - 4 * 60_000); // 4:00 signal
+    expect(atSignal.signalFlashMs).toBe(4 * 60_000);
+    expect(atSignal.takeoverKey).toBe("sig:240000");
+    expect(atSignal.flashing).toBeNull();
+
+    const after = deriveTimer(clock, schedule, GUN - 4 * 60_000 + 3_500);
+    expect(after.signalFlashMs).toBeNull();
+    expect(after.takeoverKey).toBeNull();
+  });
+
+  it("the first gun is a boat-start takeover, not a signal", () => {
+    const v = deriveTimer(clock, schedule, GUN);
+    expect(v.signalFlashMs).toBeNull();
+    expect(v.takeoverKey).toBe("boat:1");
+  });
+
+  it("msToNextHorn targets the next signal 10s before it fires", () => {
+    const v = deriveTimer(clock, schedule, GUN - 4 * 60_000 - 10_000); // 10s to 4:00 signal
+    expect(v.msToNextHorn).toBe(10_000);
+  });
+
+  it("msToNextHorn targets the upcoming boat start during the race", () => {
+    const scratch = schedule.starts.find((s) => s.isScratch)!;
+    const v = deriveTimer(clock, schedule, GUN + scratch.startFromFirstGunMs - 8_000);
+    expect(v.msToNextHorn).toBeCloseTo(8_000, 5);
   });
 });
 

@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { classesByIds, pyMeta } from "@/lib/data";
 import { buildSchedule } from "@/lib/schedule";
+import { unlockAudio } from "@/lib/audio";
 import { useFavourites, useRace } from "@/store/useRaceStore";
 import { Stepper } from "./Stepper";
 import { ScheduleList } from "./ScheduleList";
 import { ClassBrowser } from "./ClassBrowser";
+import { StartConfirm } from "./StartConfirm";
 
 export function SetupScreen() {
   const { favourites, toggleFavourite } = useFavourites();
@@ -20,6 +22,8 @@ export function SetupScreen() {
     setStartSequence,
     start,
   } = useRace();
+
+  const [confirming, setConfirming] = useState(false);
 
   // First use (no restored race): pre-select favourites per spec §"Favourites".
   useEffect(() => {
@@ -121,12 +125,24 @@ export function SetupScreen() {
         <button
           type="button"
           disabled={selectedIds.length === 0}
-          onClick={start}
+          onClick={() => setConfirming(true)}
           className="h-16 w-full rounded-2xl bg-imminent text-xl font-bold uppercase tracking-wider text-ground disabled:bg-line disabled:text-muted"
         >
           Start Race
         </button>
       </div>
+
+      {confirming && (
+        <StartConfirm
+          sequence={startSequence}
+          onConfirm={() => {
+            unlockAudio();
+            setConfirming(false);
+            start();
+          }}
+          onCancel={() => setConfirming(false)}
+        />
+      )}
     </div>
   );
 }
