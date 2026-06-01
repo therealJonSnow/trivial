@@ -11,6 +11,7 @@ interface StartConfirmProps {
 
 /** First signal of the sequence — the count-in's target. */
 const FIRST_SIGNAL: Record<StartSequence, string> = {
+  "10-5-4-1": "10:00",
   "5-4-1": "5:00",
   "3-2-1": "3:00",
 };

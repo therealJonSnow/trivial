@@ -6,6 +6,7 @@ import { pyMeta, resolveClasses } from "@/lib/data";
 import { buildSchedule } from "@/lib/schedule";
 import { unlockAudio } from "@/lib/audio";
 import { useCustomClasses, useFavourites, useRace } from "@/store/useRaceStore";
+import { START_SEQUENCE_OPTIONS, type StartSequence } from "@/lib/timer";
 import { Stepper } from "./Stepper";
 import { ScheduleList } from "./ScheduleList";
 import { ClassPicker } from "./ClassPicker";
@@ -79,31 +80,31 @@ export function SetupScreen() {
           onChange={setDuration}
         />
         <div className="flex flex-col gap-2 rounded-xl border border-line bg-panel p-3">
-          <div className="font-display text-[11px] font-semibold uppercase tracking-[0.22em] text-muted">
-            Start sequence
-          </div>
-          <div
-            role="radiogroup"
-            aria-label="Start sequence"
-            className="grid h-11 grid-cols-2 gap-1 rounded-lg bg-line p-1"
+          <label
+            htmlFor="start-sequence"
+            className="font-display text-[11px] font-semibold uppercase tracking-[0.22em] text-muted"
           >
-            {(["5-4-1", "3-2-1"] as const).map((seq) => {
-              const active = startSequence === seq;
-              return (
-                <button
-                  key={seq}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  onClick={() => setStartSequence(seq)}
-                  className={`rounded-md font-mono text-base font-bold tabular-nums transition-colors ${
-                    active ? "bg-signal text-ground" : "text-muted active:text-ink"
-                  }`}
-                >
+            Start sequence
+          </label>
+          <div className="relative">
+            <select
+              id="start-sequence"
+              value={startSequence}
+              onChange={(e) => setStartSequence(e.target.value as StartSequence)}
+              className="h-11 w-full appearance-none rounded-lg bg-line px-3 pr-9 font-mono text-base font-bold tabular-nums text-ink"
+            >
+              {START_SEQUENCE_OPTIONS.map((seq) => (
+                <option key={seq} value={seq}>
                   {seq}
-                </button>
-              );
-            })}
+                </option>
+              ))}
+            </select>
+            <span
+              className="pointer-events-none absolute inset-y-0 right-3 flex items-center font-mono text-sm text-muted"
+              aria-hidden
+            >
+              ▾
+            </span>
           </div>
         </div>
       </div>

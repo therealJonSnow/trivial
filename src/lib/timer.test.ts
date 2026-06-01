@@ -48,6 +48,18 @@ describe("phase detection", () => {
     expect(v2.activeMilestoneMs).toBe(2 * 60_000);
   });
 
+  it("10-5-4-1 sequence is a 10-minute lead-in with 10/5/4/1 milestones", () => {
+    const c = armClock(0, "10-5-4-1");
+    expect(c.warningMs).toBe(10 * 60_000);
+    const v = deriveTimer(c, schedule, 2 * 60_000); // 8:00 to go
+    expect(v.phase).toBe("warning");
+    expect(v.activeMilestoneMs).toBe(10 * 60_000);
+    const v2 = deriveTimer(c, schedule, 5 * 60_000); // 5:00 to go
+    expect(v2.activeMilestoneMs).toBe(5 * 60_000);
+    const v3 = deriveTimer(c, schedule, 6 * 60_000); // 4:00 to go
+    expect(v3.activeMilestoneMs).toBe(4 * 60_000);
+  });
+
   it("is in the warning phase before the first gun", () => {
     const v = deriveTimer(clock, schedule, GUN - WARN); // just tapped Start
     expect(v.phase).toBe("warning");
