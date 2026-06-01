@@ -9,7 +9,8 @@
 > (scratch + first gun) is locked at race start so additions never reshuffle existing starts;
 > an addition either slots into the queue or, if its start has passed, raises a **START NOW**
 > alert. Introduces an in-race **Fleet** screen (timer ⇄ fleet navigation). Flagged **[v3.2]**.
-> See §2.8.
+> See §2.8. Also adds **§11 Implementation Status** (build state, file map, what's verified vs
+> pending) so a fresh session has full context.
 >
 > **v3.1 changelog** — Replaced the configurable "warning length" with a **start-sequence
 > toggle (5-4-1 / 3-2-1)**: the selected standard dinghy-racing sequence is itself the
@@ -124,7 +125,8 @@ Pause models a real-world **postponement (AP)**, not a freeze of physical realit
 - The big primary number is always the **countdown to the next gun** (mm:ss).
 - Each schedule row shows the **absolute wall-clock time** of its start (e.g. `11:24:56`),
   computed from the Start tap, once a race is started — so the RO can cross-check a watch.
-- Before Start, the schedule shows relative offsets.
+- The schedule's relative time column shows each class's start as `+mm:ss` from the first
+  gun (ascending), **not** the behind-scratch offset — see the Start Schedule feature for why.
 
 ### 2.7 Identical PY **[v3]**
 
@@ -274,7 +276,8 @@ Works offline. Operable in under one minute.
 - [ ] Start sequence (5-4-1 or 3-2-1, toggle) counts to the first gun with its milestone emphasis
 - [ ] Race phase shows the next-start countdown + a small master race clock without manual scrolling
 - [ ] Identical-PY classes are grouped into a single start
-- [ ] Pause (postponement), Resume, Reset (re-arm to warning start, paused), and Stop all function
+- [ ] Pause (postponement), Resume, Reset (re-arm to sequence start, paused), and Stop all function
+- [ ] A class can be added mid-race: still-upcoming → into the queue; already-passed → START NOW alert (§2.8)
 - [ ] Destructive controls (Reset, Stop) require a press-and-hold confirmation
 - [ ] App works fully offline after first load
 - [ ] Screen does not sleep during an active timer session (Wake Lock)
@@ -304,7 +307,7 @@ Works offline. Operable in under one minute.
 - Secondary view: full PY list, searchable, grouped by category (dinghy / multihull / experimental)
 - Selected classes shown with PY number
 - Scratch boat (lowest PY) auto-detected and labelled
-- Start offsets shown in real time as classes are added/removed
+- The start schedule (times) updates in real time as classes are added/removed
 
 **Inputs** **[v3]** — large +/− steppers, no keyboard:
 - **Race duration** — minutes, default 60 (first use), pre-filled from LocalStorage
@@ -346,16 +349,19 @@ Shown on the setup screen and as a reference panel on the timer screen.
 **Primary display (dominates screen):**
 - Large countdown to the next class start (mm:ss)
 - Class name(s) of the next start
-- **GO** flash/highlight when a class is starting
+- **GO** flash/highlight when a class is starting (full-screen amber takeover)
+- Imminent cue: the countdown turns **amber in the final 10s** before each gun
 - Start-sequence phase only: the selected sequence's milestone emphasis (5/4/1 or 3/2/1)
 
 **Secondary displays:**
 - Small persistent **master race clock** (elapsed + time-to-finish) **[v3]**
 - Scrollable upcoming queue (next 2–4), auto-scrolls as starts pass — no manual scrolling
+- **+ Boat** button opens the in-race **Fleet** screen (§2.8) to add a latecomer / remove a
+  not-yet-started class, then returns to the timer **[v3.2]**
 
 **Controls:**
 - **Pause / Resume** — postponement model (§2.5); the only prominent control, large
-- **Reset** — re-arm to warning start, paused; press-and-hold to confirm **[v3]**
+- **Reset** — re-arm to the start of the sequence, paused; press-and-hold to confirm **[v3]**
 - **Stop** — end session, return to setup; press-and-hold to confirm **[v3]**
 
 **Control design rules:**
@@ -406,8 +412,8 @@ Improve real-world usability and add export for clubs that want a printed start 
 ### Features
 **PDF Export** — printable A4 start sheet (classes, PY, start times, duration), client-side.
 **Audible Alerts** — countdown beeps before each start (and the 5-4-1-GO warning), toggleable, Web Audio.
-**Timer Improvements** — visual flash/pulse on imminent starts, configurable warning threshold.
-**URL State Sharing** — encode race config (classes + duration + warning) in the URL query string; decode on load; does not override LocalStorage if absent.
+**Timer Improvements** — visual flash/pulse on imminent starts, configurable imminent-flash threshold (the basic 10s amber cue already ships in Stage 1).
+**URL State Sharing** — encode race config (classes + duration + start sequence) in the URL query string; decode on load; does not override LocalStorage if absent.
 
 **Acceptance criteria:**
 - [ ] PDF export produces a readable, printable A4 start sheet
@@ -424,7 +430,7 @@ Optional persistence and club-level customisation without breaking the anonymous
 ### Features
 **Authentication** — magic-link login via Supabase; anonymous usage always supported.
 **Saved Races** — save/reload named race setups.
-**Club Profiles** — default fleet, preferred duration/warning, synced when logged in.
+**Club Profiles** — default fleet, preferred duration + start sequence, synced when logged in.
 **Custom PY Overrides** — club-level PY adjustments per class, applied in offset calc, shown alongside national PY.
 
 ### Data model
@@ -432,7 +438,7 @@ Optional persistence and club-level customisation without breaking the anonymous
 users        id, email, created_at
 clubs        id, name, default_duration, owner_id
 club_classes club_id, class_id, py_override
-races        id, club_id, user_id, name, duration, warning, class_ids[], created_at
+races        id, club_id, user_id, name, duration, start_sequence, class_ids[], created_at
 ```
 
 ---
@@ -468,7 +474,8 @@ Utilitarian confidence. A tool, not a toy — considered and sharp, not bureaucr
 4. **Identical PY numbers?** — **Resolved:** start simultaneously, grouped into a single start/GO (§2.7).
 
 Remaining open question carried forward:
-- Warning-sequence audio (horn synthesis) lands in Stage 2; confirm club preferences for warning length defaults.
+- Start-sequence audio (horn synthesis) lands in Stage 2; confirm club preferences for the
+  default sequence (5-4-1 vs 3-2-1).
 
 ---
 
@@ -517,6 +524,91 @@ and reviewed by the developer.
 | 9 | Stack: Next.js App Router + static export, Vercel, Serwist, Zustand+persist, Vitest, Tailwind |
 | 10 | Dark instrument theme, huge high-contrast type; instrument colour semantics |
 | 11 | Countdown + absolute wall-clock times per row |
-| 12 | Reset re-arms to warning start, paused |
+| 12 | Reset re-arms to the start of the sequence, paused |
 | 13 | Press-and-hold confirm for destructive controls; large +/− steppers for inputs |
 | 14 | npm + ESLint + Prettier; git init + GPL-3.0; data at /data/py_data_2026.json |
+
+> Rows 1 and 5 were revised after the original interview (2026-06-01); see the **[v3.1]** /
+> **[v3.2]** tags and §§2.3, 2.8.
+
+---
+
+## 11. Implementation Status (as of 2026-06-01)
+
+**Stage 1 is feature-complete and green** (builds, type-checks, lints, 38 unit tests pass),
+**but not yet signed off** — several acceptance criteria need a real-browser/device
+verification pass before Stage 1 is "done" per §9.
+
+### Repository
+
+- Git initialised, branch `main`, latest commit `424d6be`. Licence GPL-3.0 (`LICENSE`).
+- The app lives at the repo root (Next.js project). PY data at `/data/py_data_2026.json`.
+
+```bash
+npm install
+npm run dev     # http://localhost:3000
+npm test        # 38 unit tests (calc + timer engine, formatters, dataset)
+npm run build   # static export to ./out (Serwist service worker bundled)
+npm run lint
+```
+
+### File map (key files)
+
+```
+src/lib/types.ts        Domain types (BoatClass, Schedule, ScheduleFrame, …)
+src/lib/data.ts         Loads + flattens the bundled PY JSON; search / lookup
+src/lib/schedule.ts     PURE engine: computeOffsetMs, buildSchedule(+frame), frameFromSchedule
+src/lib/timer.ts        PURE timer state machine: SEQUENCES, armClock/pause/resume, deriveTimer
+src/lib/format.ts       mm:ss / countdown / clock / ordinal formatters
+src/lib/*.test.ts       Vitest suites for the four lib modules
+src/store/useRaceStore.ts  Zustand: favourites (trivial.favourites) + race config/clock/frame (trivial.lastRace)
+src/hooks/useNow.ts        rAF clock tick (render cadence only; time is wall-clock anchored)
+src/hooks/useWakeLock.ts   Screen Wake Lock with foreground re-acquire + silent fallback
+src/components/SetupScreen.tsx   Pre-race setup (steppers, 5-4-1/3-2-1 toggle, schedule preview, browser)
+src/components/RaceShell.tsx     In-race navigation: timer ⇄ fleet
+src/components/TimerScreen.tsx   Live timer (countdown, GO flash, master clock, controls, + Boat)
+src/components/FleetScreen.tsx   In-race add/remove; START NOW alert for already-passed adds
+src/components/ClassBrowser.tsx  Reusable class list (search, favourites, categories, locked state)
+src/components/ScheduleList.tsx  Start schedule rows (+mm:ss from first gun, clock time, status)
+src/components/{Stepper,HoldButton,StartNowAlert,ServiceWorker}.tsx
+src/app/{layout,page,globals.css,sw.ts}   App shell, screen switch, styles, Serwist worker
+```
+
+### Architecture notes
+
+- **Pure engine, tested.** All race maths lives in `src/lib` as pure functions with unit
+  tests; React only renders derived views. The offset formula and the timer state machine are
+  the two highest-risk surfaces and are both covered.
+- **Wall-clock anchored.** The clock derives everything from `Date.now()` against stored
+  anchors (`startedAtEpoch`, `warningMs`, `accumulatedPauseMs`, `pausedAtEpoch`); it never
+  sums interval ticks, so it survives backgrounding/throttling. Pause folds elapsed paused
+  time into `accumulatedPauseMs` (postponement).
+- **Locked frame.** At Start, the `{scratchPy, maxOffsetMs, durationMs}` frame is snapshotted;
+  mid-race additions are timed against it so existing starts never move (§2.8).
+- **Persistence.** Only config persists (`trivial.favourites`, `trivial.lastRace` =
+  selectedIds + durationMinutes + startSequence). The live clock/frame are **ephemeral** —
+  reloading the page mid-race returns to setup (no resume). Acceptable for Stage 1.
+- **PWA.** Serwist generates `public/sw.js` at build and precaches the shell; PY data is
+  bundled into the JS, so offline needs no runtime fetch. SW registers in production only.
+
+### Acceptance criteria — verification state
+
+**Verified by unit tests + build:** offset formula (24:56 worked example), scratch detection,
+earliest-first ordering, finish = scratch+duration, identical-PY grouping (incl. 3-way /
+cross-category), both start sequences' milestones, pause/postponement maths, locked-frame
+mid-race adds (existing starts unchanged; faster entrant last; slower entrant already-passed).
+
+**Built and runs in dev, but NOT yet verified in a real browser/device (the pending pass):**
+- Setup → timer in < 5 taps (measure)
+- Full live run-through: sequence → first gun → per-class GO flashes → finish
+- Pause/Resume/Reset/Stop and press-and-hold feel
+- Mid-race add flow end-to-end (queue insert + START NOW alert timing)
+- Favourites + last-race **persistence round-trip** across reload
+- **Wake Lock** actually holding the screen on (needs a device)
+- **Full offline after first load** (load, kill network, confirm)
+
+### Known follow-ups / polish ideas (not blocking)
+
+- Proper maskable PWA icons (current icons are rendered from `public/icon.svg`).
+- `maximumScale:1 / userScalable:false` aids the instrument feel but is an a11y trade-off.
+- Optional: persist the live clock so a mid-race reload resumes (epoch-anchored, would be easy).
