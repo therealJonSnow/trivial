@@ -20,8 +20,8 @@ Stage 1 decision record (§10).
 2. **Pick your fleet.** Tap classes to add or remove them; search by name. Tap the ★ on any
    class to save it as a favourite — favourites appear first and are pre-selected next time.
    There's no limit on how many classes you select.
-3. **Set the race duration** with the +/− stepper (minutes). This is the scratch boat's
-   sailing time and it sets how far apart the starts are.
+3. **Set the race duration** with the +/− stepper (minutes). This is the **total race
+   window** — first gun to finish — and it sets how far apart the starts are.
 4. **Choose the start sequence:** **5-4-1** (5-minute) or **3-2-1** (3-minute).
 5. **Check the schedule preview.** Each class shows its PY and start time as `+m:ss` from
    the first gun. The **slowest boat starts first** (`+0:00`); the **fastest (scratch)
@@ -39,7 +39,7 @@ Stage 1 decision record (§10).
   final 10 seconds**, then flashes **GO** — one horn per class. Classes that share a PY
   start together on a single GO.
 - **Master clock.** The top bar shows elapsed race time and time to finish (finish =
-  scratch start + duration).
+  first gun + duration; the slowest boat sails the full window and everyone converges there).
 
 ### Add a latecomer mid-race
 
@@ -93,9 +93,11 @@ started yet; started classes are locked. Tap **Back to race** to return to the t
 - The clock is **wall-clock anchored** (`Date.now()` against stored anchors), so it
   survives backgrounding and throttling. Pause is a **postponement** that shifts all
   remaining starts later.
-- Classes sharing a PY are **grouped into one start**. Finish = scratch start + duration.
+- Classes sharing a PY are **grouped into one start**. Finish = first gun + duration.
 
-Offset formula (spec §2.2): `offset = duration × (1 − PY_scratch / PY_class)`.
+Start formula (spec §2.2): `start = duration × (1 − PY_class / PY_slowest)`, measured from
+the first gun and anchored on the slowest boat, so boats sailing to handicap converge at the
+finish.
 
 ## Develop
 

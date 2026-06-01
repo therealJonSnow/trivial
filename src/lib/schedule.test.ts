@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  computeOffsetMs,
+  computeStartFromFirstGunMs,
   buildSchedule,
   startTime,
   frameFromSchedule,
@@ -23,22 +23,30 @@ function boat(name: string, py: number, category: Category = "dinghy"): BoatClas
   };
 }
 
-describe("computeOffsetMs", () => {
-  it("matches the spec worked example (RS800 scratch, Mirror) → 24:56", () => {
+describe("computeStartFromFirstGunMs", () => {
+  it("matches the spec worked example (RS800 vs slowest Mirror) → 24:56", () => {
     const durationMs = 60 * 60_000;
-    const offset = computeOffsetMs(durationMs, 797, 1364);
+    // slowest = Mirror (1364); the RS800 (797) starts this long after the first gun.
+    const start = computeStartFromFirstGunMs(durationMs, 1364, 797);
     // 60min × (1 − 797/1364) = 1,496,481.…ms
-    expect(offset).toBeCloseTo(1_496_481.2, 0);
-    expect(formatMmSs(offset)).toBe("24:56");
+    expect(start).toBeCloseTo(1_496_481.2, 0);
+    expect(formatMmSs(start)).toBe("24:56");
   });
 
-  it("is zero for the scratch boat (class PY === scratch PY)", () => {
-    expect(computeOffsetMs(60 * 60_000, 797, 797)).toBe(0);
+  it("is zero for the slowest boat (class PY === slowest PY) — the first gun", () => {
+    expect(computeStartFromFirstGunMs(60 * 60_000, 1364, 1364)).toBe(0);
   });
 
-  it("increases with slower (higher PY) classes", () => {
+  it("starts faster (lower PY) classes later", () => {
     const d = 60 * 60_000;
-    expect(computeOffsetMs(d, 797, 1000)).toBeLessThan(computeOffsetMs(d, 797, 1364));
+    // RS800 (797) starts later than the Laser (1100) in a fleet whose slowest is 1364.
+    expect(computeStartFromFirstGunMs(d, 1364, 1100)).toBeLessThan(
+      computeStartFromFirstGunMs(d, 1364, 797),
+    );
+  });
+
+  it("is negative for a class slower than the slowest reference (already passed)", () => {
+    expect(computeStartFromFirstGunMs(60 * 60_000, 1364, 1600)).toBeLessThan(0);
   });
 });
 
@@ -47,44 +55,49 @@ describe("buildSchedule", () => {
     expect(buildSchedule([], 60)).toBeNull();
   });
 
-  it("handles a single class as its own scratch start", () => {
+  it("handles a single class as both scratch and slowest, starting at the first gun", () => {
     const s = buildSchedule([boat("Solo", 1142)], 60);
     expect(s).not.toBeNull();
     expect(s?.starts).toHaveLength(1);
     expect(s?.scratchPy).toBe(1142);
-    expect(s?.starts[0]?.offsetMs).toBe(0);
+    expect(s?.slowestPy).toBe(1142);
     expect(s?.starts[0]?.isScratch).toBe(true);
     expect(s?.starts[0]?.startFromFirstGunMs).toBe(0);
   });
 
-  it("auto-detects the scratch boat as the lowest PY", () => {
+  it("auto-detects scratch (lowest PY) and slowest (highest PY)", () => {
     const s = buildSchedule(
       [boat("RS800", 797), boat("Mirror", 1364), boat("Laser", 1100)],
       60,
     );
     expect(s?.scratchPy).toBe(797);
+    expect(s?.slowestPy).toBe(1364);
     const scratch = s?.starts.find((x) => x.isScratch);
     expect(scratch?.py).toBe(797);
   });
 
-  it("orders starts earliest-first; scratch is last with offset 0", () => {
+  it("orders starts earliest-first; slowest is first (T=0), scratch is last", () => {
     const s = buildSchedule(
       [boat("RS800", 797), boat("Mirror", 1364), boat("Laser", 1100)],
       60,
     );
     const order = s?.starts.map((x) => x.py);
     expect(order).toEqual([1364, 1100, 797]); // slowest → fastest
+    expect(s?.starts[0]?.startFromFirstGunMs).toBe(0); // first gun = slowest
     const last = s?.starts.at(-1);
     expect(last?.isScratch).toBe(true);
-    expect(last?.offsetMs).toBe(0);
     expect(s?.starts[0]?.order).toBe(1);
   });
 
-  it("anchors timing to the first gun (earliest start at T=0, scratch at maxOffset)", () => {
-    const s = buildSchedule([boat("RS800", 797), boat("Mirror", 1364)], 60);
-    expect(s?.starts[0]?.startFromFirstGunMs).toBe(0); // first gun
-    const scratch = s?.starts.find((x) => x.isScratch);
-    expect(scratch?.startFromFirstGunMs).toBe(s?.maxOffsetMs);
+  it("places the mid-fleet boat by the convergent formula (Laser → +11:37, not +8:25)", () => {
+    const s = buildSchedule(
+      [boat("RS800", 797), boat("Mirror", 1364), boat("Laser", 1100)],
+      60,
+    )!;
+    const laser = s.starts.find((x) => x.classes[0]?.name === "Laser")!;
+    expect(formatMmSs(laser.startFromFirstGunMs)).toBe("11:37");
+    const scratch = s.starts.find((x) => x.isScratch)!;
+    expect(formatMmSs(scratch.startFromFirstGunMs)).toBe("24:56");
   });
 
   it("start time from first gun ascends with order (slowest first, scratch chases last)", () => {
@@ -93,18 +106,26 @@ describe("buildSchedule", () => {
       60,
     )!;
     const times = s.starts.map((x) => x.startFromFirstGunMs);
-    // first start is the slowest at +0; each subsequent start is later
     expect(times[0]).toBe(0);
     for (let i = 1; i < times.length; i++) {
       expect(times[i]!).toBeGreaterThan(times[i - 1]!);
     }
-    // the last (largest) start time belongs to the scratch boat
     expect(s.starts.at(-1)?.isScratch).toBe(true);
   });
 
-  it("computes finish as scratch start + duration (maxOffset + duration)", () => {
+  it("finishes at first gun + duration (the slowest boat sails the full window)", () => {
     const s = buildSchedule([boat("RS800", 797), boat("Mirror", 1364)], 60);
-    expect(s?.finishFromFirstGunMs).toBe((s?.maxOffsetMs ?? 0) + 60 * 60_000);
+    expect(s?.finishFromFirstGunMs).toBe(60 * 60_000);
+  });
+
+  it("converges: every boat sailing to its PY finishes together (sailTime/PY equal)", () => {
+    const s = buildSchedule(
+      [boat("RS800", 797), boat("Mirror", 1364), boat("Laser", 1100), boat("Solo", 1142)],
+      60,
+    )!;
+    const ratios = s.starts.map((x) => (s.finishFromFirstGunMs - x.startFromFirstGunMs) / x.py);
+    const expected = s.finishFromFirstGunMs / s.slowestPy;
+    for (const r of ratios) expect(r).toBeCloseTo(expected, 6);
   });
 
   it("groups identical-PY classes into a single start (incl. cross-category)", () => {
@@ -152,9 +173,8 @@ describe("mid-race additions (locked frame)", () => {
     return schedule!.starts.find((s) => s.classes.some((c) => c.name === name));
   }
 
-  it("snapshots the locked scratch/first-gun reference", () => {
-    expect(frame.scratchPy).toBe(797);
-    expect(frame.maxOffsetMs).toBe(base.maxOffsetMs);
+  it("snapshots the locked slowest-boat / window reference", () => {
+    expect(frame.slowestPy).toBe(1364);
     expect(frame.durationMs).toBe(60 * 60_000);
   });
 
@@ -183,7 +203,7 @@ describe("mid-race additions (locked frame)", () => {
     expect(withAdd.starts.at(-1)?.classes[0]?.name).toBe("Foiler");
   });
 
-  it("times a late entrant SLOWER than the fleet before the first gun (already passed)", () => {
+  it("times a late entrant SLOWER than the locked slowest boat before the first gun (already passed)", () => {
     const withAdd = buildSchedule(
       [boat("RS800", 797), boat("Mirror", 1364), boat("Heavy", 1600)],
       60,
@@ -203,7 +223,7 @@ describe("startTime", () => {
     expect(startTime(first, firstGun).getTime()).toBe(firstGun);
     // Date is integer-ms; offsets are sub-ms fractional, so compare against floor.
     expect(startTime(scratch, firstGun).getTime()).toBe(
-      Math.floor(firstGun + s!.maxOffsetMs),
+      Math.floor(firstGun + scratch.startFromFirstGunMs),
     );
   });
 });

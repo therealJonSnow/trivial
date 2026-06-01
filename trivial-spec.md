@@ -6,7 +6,7 @@
 **Author:** Solo developer / Claude Code agent sessions
 
 > **v3.2 changelog** — Allow **adding classes mid-race** (latecomers). The timing frame
-> (scratch + first gun) is locked at race start so additions never reshuffle existing starts;
+> (the slowest boat + race window) is locked at race start so additions never reshuffle existing starts;
 > an addition either slots into the queue or, if its start has passed, raises a **START NOW**
 > alert. Introduces an in-race **Fleet** screen (timer ⇄ fleet navigation). Flagged **[v3.2]**.
 > See §2.8. Also adds **§11 Implementation Status** (build state, file map, what's verified vs
@@ -46,39 +46,51 @@ A race officer can set up and run a pursuit race start sequence in under one min
 - Slower boats (higher PY) start earlier; faster boats (lower PY) start later
 - All boats theoretically finish at the same time
 - Starts are **class-based** — individual boats within a class start together
-- A **scratch boat** (lowest PY in the selected fleet) starts last, at offset 00:00
+- A **scratch boat** (lowest PY in the selected fleet) starts last and sails the least
 
 ### 2.2 Start Offset Formula
 
-The start time offset for each class is calculated as:
+Each class's start time, measured from the first gun, is anchored on the **slowest**
+boat in the fleet:
 
 ```
-offset (minutes) = raceDuration × (1 − PY_scratch / PY_class)
+start (minutes after first gun) = raceDuration × (1 − PY_class / PY_slowest)
 ```
 
 Where:
-- `raceDuration` = total race length in minutes (the scratch boat's sailing time — see §2.4)
-- `PY_scratch` = PY number of the fastest (scratch) boat in the fleet
+- `raceDuration` = the total race **window** in minutes (first gun → finish — see §2.4)
+- `PY_slowest` = highest PY in the fleet (the slowest boat; it starts at the first gun)
 - `PY_class` = PY number of the class being calculated
+
+Equivalently — the form used by the RYA pursuit calculator: `ratio = PY_slowest /
+raceDurationSeconds`; each class's sailing time = `PY_class / ratio`; it starts at
+`raceDuration − sailingTime`.
 
 **Worked example:**
 
-> Race duration: 60 minutes
+> Race window: 60 minutes
+> Slowest boat: Mirror (PY 1364) — starts at the first gun, +0:00
 > Scratch boat: RS800 (PY 797)
-> Mirror (PY 1364)
 >
-> offset = 60 × (1 − 797 / 1364)
-> offset = 60 × 0.4157
-> offset = **24.94 minutes = 24:56**
+> RS800 start = 60 × (1 − 797 / 1364)
+>             = 60 × 0.4157
+>             = **24.94 minutes = 24:56** after the first gun
 >
-> The Mirror starts 24 minutes and 56 seconds before the RS800.
+> The RS800 starts 24:56 *after* the Mirror and chases it down; both finish together at 60:00.
+
+**Why this formula:** boat speed is taken as inversely proportional to PY, so a boat
+sailing exactly to its handicap covers the same distance by the finish whatever its class.
+Every boat's `sailingTime / PY` equals `raceDuration / PY_slowest`, so they all converge at
+the finish — the defining property of a pursuit race. (The earlier `raceDuration × (1 −
+PY_scratch / PY_class)` form is correct only for two boats; it mis-places the mid-fleet and
+is **not** used.)
 
 **Implementation rules:**
-- The scratch boat is always auto-detected as the selected class with the lowest PY number
-- Offsets are computed in **milliseconds** internally, displayed as mm:ss
-- The scratch boat always has an offset of 00:00
-- Start order is sorted descending by offset (largest offset = earliest start = first)
-- Display rounding: the canonical worked example (1496.4s) renders as **24:56**; rounding
+- The slowest boat (highest PY) is auto-detected and starts at the first gun (+0:00)
+- The scratch boat (lowest PY) is auto-detected; it starts last and sails the least
+- Start times are computed in **milliseconds** internally, displayed as mm:ss
+- Start order is sorted **ascending** by start time (earliest = slowest boat = first gun)
+- Display rounding: the canonical RS800 start (1,496,481 ms) renders as **24:56**; rounding
   is to the nearest whole second for display, while all timing arithmetic stays in ms
 
 ### 2.3 The Timer Model **[v3]**
@@ -101,17 +113,18 @@ configurable "warning"; the sequence *is* the lead-in). **[v3.1]**
 - There is **no** 5-4-1 milestone treatment after the first gun.
 
 **Reference frame:**
-- First gun is at master-time `T = 0`.
-- A class with offset `O` starts at `maxOffset − O` after the first gun.
-- The scratch boat (offset 0) starts at `T = maxOffset`.
+- First gun is at master-time `T = 0` — the slowest boat's start.
+- A class starts at `raceDuration × (1 − PY_class / PY_slowest)` after the first gun.
+- The scratch boat (lowest PY) starts last, at `raceDuration × (1 − PY_scratch / PY_slowest)`.
 
 ### 2.4 Master Clock & Finish **[v3]**
 
 - A **master race clock** shows elapsed time since the first gun, displayed as a small,
   persistent secondary readout (the next-start countdown always dominates).
-- **Finish = scratch start + raceDuration**, i.e. `maxOffset + raceDuration` after the
-  first gun. Stage 1 shows the finish as a clock readout and a finish state; it does **not**
-  record results.
+- **Finish = first gun + raceDuration.** The slowest boat (first gun) sails the full
+  window; faster boats start later and sail less; all converge at the finish. So the entered
+  duration *is* the total event length — it never overruns. Stage 1 shows the finish as a
+  clock readout and a finish state; it does **not** record results.
 
 ### 2.5 Pause = Postponement **[v3]**
 
@@ -126,7 +139,7 @@ Pause models a real-world **postponement (AP)**, not a freeze of physical realit
 - Each schedule row shows the **absolute wall-clock time** of its start (e.g. `11:24:56`),
   computed from the Start tap, once a race is started — so the RO can cross-check a watch.
 - The schedule's relative time column shows each class's start as `+mm:ss` from the first
-  gun (ascending), **not** the behind-scratch offset — see the Start Schedule feature for why.
+  gun (ascending) — see the Start Schedule feature for why.
 
 ### 2.7 Identical PY **[v3]**
 
@@ -139,7 +152,7 @@ categories, so this is a real, tested case — not an edge case.)
 
 A class **can be added after the race has started** — a latecomer turning up to join in.
 This reverses v3's "no edits while running" rule, but safely: the timing reference frame
-(scratch boat + first gun) is **locked at race start**, so adding a class never reshuffles
+(the slowest boat + race window) is **locked at race start**, so adding a class never reshuffles
 the boats already on the schedule.
 
 When a class is added mid-race, its start is computed in the locked frame and falls into one
@@ -337,10 +350,9 @@ Shown on the setup screen and as a reference panel on the timer screen.
 
 - Sorted by start order (earliest first); the slowest class starts first at `+0:00`, the
   scratch boat starts **last** at the largest time so faster boats chase the fleet down.
-- **Display the time as elapsed-from-first-gun (`+mm:ss`, ascending), not the
-  behind-scratch offset.** [v3] The §2.2 offset is the *computation*; showing it directly in
-  the schedule inverts the apparent order (the first boat would show the biggest number),
-  which reads as "slowest starts last" and is wrong. `startFromFirstGun = maxOffset − offset`.
+- **Display the time as elapsed-from-first-gun (`+mm:ss`, ascending).** [v3] This is exactly
+  the §2.2 start time: the slowest boat shows `+0:00` (the first gun) and the scratch boat the
+  largest value, so the column reads top-to-bottom in start order with no inversion.
 
 ---
 
@@ -518,7 +530,7 @@ and reviewed by the developer.
 | 3 | Clock is wall-clock anchored (Date.now() + start timestamp + accumulated pause); offsets in ms |
 | 4 | Pause = postponement (shift all remaining starts + finish) |
 | 5 | ~~No class-list edits while running~~ → **[v3.2]** Mid-race **add** allowed (latecomers); timed in a locked frame so existing starts never move; already-passed adds raise a START NOW alert; remove allowed only for not-yet-started classes. A dedicated in-race Fleet screen handles this. |
-| 6 | Master race clock added; finish = scratch start + duration |
+| 6 | Master race clock added; finish = first gun + duration |
 | 7 | Identical PY grouped into one start/GO |
 | 8 | No class cap (20 was illustrative); min 1 to start |
 | 9 | Stack: Next.js App Router + static export, Vercel, Serwist, Zustand+persist, Vitest, Tailwind |
@@ -583,7 +595,7 @@ src/app/{layout,page,globals.css,sw.ts}   App shell, screen switch, styles, Serw
   anchors (`startedAtEpoch`, `warningMs`, `accumulatedPauseMs`, `pausedAtEpoch`); it never
   sums interval ticks, so it survives backgrounding/throttling. Pause folds elapsed paused
   time into `accumulatedPauseMs` (postponement).
-- **Locked frame.** At Start, the `{scratchPy, maxOffsetMs, durationMs}` frame is snapshotted;
+- **Locked frame.** At Start, the `{slowestPy, durationMs}` frame is snapshotted;
   mid-race additions are timed against it so existing starts never move (§2.8).
 - **Persistence.** Only config persists (`trivial.favourites`, `trivial.lastRace` =
   selectedIds + durationMinutes + startSequence). The live clock/frame are **ephemeral** —
@@ -593,10 +605,11 @@ src/app/{layout,page,globals.css,sw.ts}   App shell, screen switch, styles, Serw
 
 ### Acceptance criteria — verification state
 
-**Verified by unit tests + build:** offset formula (24:56 worked example), scratch detection,
-earliest-first ordering, finish = scratch+duration, identical-PY grouping (incl. 3-way /
-cross-category), both start sequences' milestones, pause/postponement maths, locked-frame
-mid-race adds (existing starts unchanged; faster entrant last; slower entrant already-passed).
+**Verified by unit tests + build:** slowest-anchored start formula (24:56 worked example +
+mid-fleet convergence), scratch/slowest detection, earliest-first ordering, finish = first
+gun + duration, identical-PY grouping (incl. 3-way / cross-category), both start sequences'
+milestones, pause/postponement maths, locked-frame mid-race adds (existing starts unchanged;
+faster entrant last; slower entrant already-passed).
 
 **Built and runs in dev, but NOT yet verified in a real browser/device (the pending pass):**
 - Setup → timer in < 5 taps (measure)

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { classesByIds } from "@/lib/data";
-import { buildSchedule, computeOffsetMs } from "@/lib/schedule";
+import { buildSchedule, computeStartFromFirstGunMs } from "@/lib/schedule";
 import { deriveTimer, firstGunEpoch } from "@/lib/timer";
 import { formatCountdown, formatMmSs } from "@/lib/format";
 import { useFavourites, useRace } from "@/store/useRaceStore";
@@ -51,8 +51,11 @@ export function FleetScreen({ onBack }: FleetScreenProps) {
     // Adding mid-race: classify against the LOCKED frame.
     const cls = classesByIds([id])[0];
     if (!cls) return;
-    const offset = computeOffsetMs(frame.durationMs, frame.scratchPy, cls.py);
-    const startFromGun = frame.maxOffsetMs - offset;
+    const startFromGun = computeStartFromFirstGunMs(
+      frame.durationMs,
+      frame.slowestPy,
+      cls.py,
+    );
     const msSinceFirstGun = (clock.pausedAtEpoch ?? Date.now()) - firstGunEpoch(clock);
     if (startFromGun <= msSinceFirstGun) setAlertNames([cls.name]);
   };

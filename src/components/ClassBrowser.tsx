@@ -17,6 +17,13 @@ interface ClassBrowserProps {
   onToggleFavourite: (id: number) => void;
   /** Selected classes that cannot be removed (e.g. already started mid-race). */
   lockedIds?: number[];
+  /**
+   * Controlled search term. When provided, ClassBrowser renders the list only —
+   * the parent owns the input (e.g. a sticky search bar in the picker sheet).
+   * When omitted, ClassBrowser manages its own query and renders its own input.
+   */
+  query?: string;
+  onQueryChange?: (q: string) => void;
 }
 
 export function ClassBrowser({
@@ -25,8 +32,13 @@ export function ClassBrowser({
   onToggleSelected,
   onToggleFavourite,
   lockedIds = [],
+  query: controlledQuery,
+  onQueryChange,
 }: ClassBrowserProps) {
-  const [query, setQuery] = useState("");
+  const [internalQuery, setInternalQuery] = useState("");
+  const controlled = controlledQuery !== undefined;
+  const query = controlled ? controlledQuery : internalQuery;
+  const setQuery = controlled ? onQueryChange! : setInternalQuery;
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const favSet = useMemo(() => new Set(favourites), [favourites]);
@@ -45,14 +57,16 @@ export function ClassBrowser({
 
   return (
     <>
-      <input
-        type="search"
-        inputMode="search"
-        placeholder="Search classes…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        className="mb-3 h-11 w-full rounded-lg border border-line bg-panel px-3 text-ink placeholder:text-muted"
-      />
+      {!controlled && (
+        <input
+          type="search"
+          inputMode="search"
+          placeholder="Search classes…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="mb-3 h-11 w-full rounded-lg border border-line bg-panel px-3 text-ink placeholder:text-muted"
+        />
+      )}
 
       {favClasses.length > 0 && (
         <ClassGroup
@@ -81,6 +95,11 @@ export function ClassBrowser({
           />
         );
       })}
+      {filtered.length === 0 && (
+        <p className="py-10 text-center text-sm text-muted">
+          No classes match “{query.trim()}”.
+        </p>
+      )}
     </>
   );
 }

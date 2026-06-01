@@ -78,7 +78,7 @@ describe("phase detection", () => {
     expect(v.flashing).toBeNull();
   });
 
-  it("reaches finished at scratch start + duration", () => {
+  it("reaches finished at first gun + duration", () => {
     const v = deriveTimer(clock, schedule, GUN + schedule.finishFromFirstGunMs);
     expect(v.phase).toBe("finished");
     expect(v.toFinishMs).toBe(0);

@@ -44,33 +44,41 @@ export interface ScheduledStart {
   classes: BoatClass[];
   /** Shared PY of the grouped classes. */
   py: number;
-  /** Offset behind the scratch boat, in ms (0 for the scratch start). */
-  offsetMs: number;
-  /** Time after the first gun at which this start fires, in ms. */
+  /**
+   * Time after the first gun at which this start fires, in ms:
+   *   startFromFirstGunMs = duration × (1 − PY_class / PY_slowest)
+   * The slowest boat (first gun) is 0; the scratch (fastest) boat is the largest.
+   * Negative for a class added mid-race slower than the locked fleet — its start
+   * has already passed (START NOW).
+   */
   startFromFirstGunMs: number;
-  /** True if this is the scratch (lowest PY) start. */
+  /** True if this is the scratch (lowest PY) start — starts last, sails least. */
   isScratch: boolean;
 }
 
 export interface Schedule {
   starts: ScheduledStart[];
-  /** Lowest selected PY. */
+  /** Lowest selected PY — the scratch boat (label; starts last). */
   scratchPy: number;
-  /** Largest offset = the first gun's lead over the scratch, in ms. */
-  maxOffsetMs: number;
-  /** Configured race duration, in ms. */
+  /** Highest selected PY — the slowest boat and timing anchor (first gun, T=0). */
+  slowestPy: number;
+  /** Configured total race window, in ms (first gun → finish). */
   durationMs: number;
-  /** Finish relative to the first gun: maxOffsetMs + durationMs. */
+  /**
+   * Finish relative to the first gun. Equals `durationMs`: the slowest boat sails
+   * the full window and every boat sailing to its PY finishes together here.
+   */
   finishFromFirstGunMs: number;
 }
 
 /**
  * The locked timing reference, snapshotted at race start. Classes added mid-race
- * are timed against this frame so existing starts never reshuffle (the scratch
- * boat and first gun stay fixed for the life of the race).
+ * are timed against this frame so existing starts never reshuffle (the slowest
+ * boat / first gun and the race window stay fixed for the life of the race).
  */
 export interface ScheduleFrame {
-  scratchPy: number;
-  maxOffsetMs: number;
+  /** Highest PY at race start — the locked first-gun anchor. */
+  slowestPy: number;
+  /** Total race window at race start, in ms. */
   durationMs: number;
 }

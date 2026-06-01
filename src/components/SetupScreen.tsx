@@ -7,7 +7,7 @@ import { unlockAudio } from "@/lib/audio";
 import { useFavourites, useRace } from "@/store/useRaceStore";
 import { Stepper } from "./Stepper";
 import { ScheduleList } from "./ScheduleList";
-import { ClassBrowser } from "./ClassBrowser";
+import { ClassPicker } from "./ClassPicker";
 import { StartConfirm } from "./StartConfirm";
 
 export function SetupScreen() {
@@ -24,6 +24,7 @@ export function SetupScreen() {
   } = useRace();
 
   const [confirming, setConfirming] = useState(false);
+  const [picking, setPicking] = useState(false);
 
   // First use (no restored race): pre-select favourites per spec §"Favourites".
   useEffect(() => {
@@ -37,13 +38,16 @@ export function SetupScreen() {
     [selectedIds, durationMinutes],
   );
 
+  const count = selectedIds.length;
+
   return (
-    <div className="mx-auto flex min-h-dvh max-w-md flex-col px-4 pb-28 pt-4">
-      <header className="mb-4">
+    <div className="mx-auto flex min-h-dvh max-w-md flex-col px-4 pb-28 pt-[max(1rem,env(safe-area-inset-top))]">
+      <header className="mb-5">
         <h1 className="text-lg font-bold uppercase tracking-[0.3em] text-ink">Trivial</h1>
         <p className="text-xs text-muted">Make pursuit trivial.</p>
       </header>
 
+      {/* Matched control pair: equal card height, shared caption + 44px control row. */}
       <div className="mb-4 grid grid-cols-2 gap-2">
         <Stepper
           label="Duration"
@@ -52,12 +56,14 @@ export function SetupScreen() {
           step={5}
           onChange={setDuration}
         />
-        <div className="flex flex-col justify-between rounded-xl bg-panel px-3 py-2">
-          <div className="text-xs uppercase tracking-wider text-muted">Start sequence</div>
+        <div className="flex flex-col gap-2 rounded-xl bg-panel p-3">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
+            Sequence
+          </div>
           <div
             role="radiogroup"
             aria-label="Start sequence"
-            className="mt-1 flex gap-1 rounded-lg bg-line p-1"
+            className="grid h-11 grid-cols-2 gap-1 rounded-lg bg-line p-1"
           >
             {(["5-4-1", "3-2-1"] as const).map((seq) => {
               const active = startSequence === seq;
@@ -68,8 +74,8 @@ export function SetupScreen() {
                   role="radio"
                   aria-checked={active}
                   onClick={() => setStartSequence(seq)}
-                  className={`h-9 flex-1 rounded-md font-mono text-sm font-bold tabular-nums ${
-                    active ? "bg-imminent text-ground" : "text-muted"
+                  className={`rounded-md font-mono text-base font-bold tabular-nums transition-colors ${
+                    active ? "bg-imminent text-ground" : "text-muted active:text-ink"
                   }`}
                 >
                   {seq}
@@ -80,57 +86,72 @@ export function SetupScreen() {
         </div>
       </div>
 
+      {/* Fleet / schedule — the hero. Tap Edit to open the fullscreen picker. */}
       {schedule ? (
-        <section className="mb-4 rounded-xl bg-panel p-3">
-          <div className="mb-1 flex items-center justify-between">
-            <h2 className="text-xs uppercase tracking-wider text-muted">
-              Start schedule · {selectedIds.length} class
-              {selectedIds.length === 1 ? "" : "es"}
+        <section className="overflow-hidden rounded-xl bg-panel">
+          <button
+            type="button"
+            onClick={() => setPicking(true)}
+            className="flex w-full items-center justify-between gap-3 border-b border-line px-3 py-2.5 text-left active:bg-line/40"
+          >
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
+              Start schedule
             </h2>
-            <button
-              type="button"
-              onClick={() => setSelected([])}
-              className="text-xs text-muted underline"
-            >
-              Clear
-            </button>
+            <span className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <span className="font-mono text-xs tabular-nums text-muted">
+                {count} {count === 1 ? "class" : "classes"}
+              </span>
+              <span className="text-imminent">Edit ›</span>
+            </span>
+          </button>
+
+          <div className="px-3 py-2">
+            <ScheduleList schedule={schedule} />
           </div>
-          <ScheduleList schedule={schedule} />
         </section>
       ) : (
-        <section className="mb-4 rounded-xl border border-dashed border-line p-5 text-center">
-          <p className="text-sm text-ink">No classes selected</p>
-          <p className="mt-1 text-xs text-muted">
+        <button
+          type="button"
+          onClick={() => setPicking(true)}
+          className="flex w-full flex-col items-center rounded-xl border border-dashed border-line px-5 py-8 text-center active:border-imminent"
+        >
+          <span className="flex h-11 w-11 items-center justify-center rounded-full border border-imminent text-2xl leading-none text-imminent">
+            +
+          </span>
+          <span className="mt-3 text-base font-semibold text-ink">Build your fleet</span>
+          <span className="mt-1 max-w-xs text-xs text-muted">
             {favourites.length > 0
-              ? "Tap your favourites below, or search the full list."
-              : "Search and tap classes to build your fleet. Star ★ any to save as favourites."}
-          </p>
-        </section>
+              ? "Add your starred classes or search the full PY list."
+              : "Search and tap classes to add them. Star ★ any to save as favourites."}
+          </span>
+        </button>
       )}
 
-      <div className="flex-1">
-        <ClassBrowser
-          selectedIds={selectedIds}
-          favourites={favourites}
-          onToggleSelected={toggleSelected}
-          onToggleFavourite={toggleFavourite}
-        />
-      </div>
-
-      <p className="mt-4 text-center text-[10px] text-muted">
+      <p className="mt-auto pt-6 text-center text-[10px] text-muted">
         PY {pyMeta.source} v{pyMeta.version} · {pyMeta.lastUpdated}
       </p>
 
-      <div className="fixed inset-x-0 bottom-0 mx-auto max-w-md px-4 pb-4">
+      <div className="fixed inset-x-0 bottom-0 mx-auto max-w-md px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <button
           type="button"
-          disabled={selectedIds.length === 0}
+          disabled={count === 0}
           onClick={() => setConfirming(true)}
-          className="h-16 w-full rounded-2xl bg-imminent text-xl font-bold uppercase tracking-wider text-ground disabled:bg-line disabled:text-muted"
+          className="h-16 w-full rounded-2xl bg-imminent text-xl font-bold uppercase tracking-wider text-ground active:opacity-90 disabled:bg-line disabled:text-muted"
         >
           Start Race
         </button>
       </div>
+
+      {picking && (
+        <ClassPicker
+          selectedIds={selectedIds}
+          favourites={favourites}
+          onToggleSelected={toggleSelected}
+          onToggleFavourite={toggleFavourite}
+          onClear={() => setSelected([])}
+          onClose={() => setPicking(false)}
+        />
+      )}
 
       {confirming && (
         <StartConfirm
