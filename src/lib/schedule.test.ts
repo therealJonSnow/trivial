@@ -4,6 +4,7 @@ import {
   buildSchedule,
   startTime,
   frameFromSchedule,
+  deriveDurationMinutes,
 } from "./schedule";
 import { formatMmSs } from "./format";
 import type { BoatClass, Category } from "./types";
@@ -47,6 +48,52 @@ describe("computeStartFromFirstGunMs", () => {
 
   it("is negative for a class slower than the slowest reference (already passed)", () => {
     expect(computeStartFromFirstGunMs(60 * 60_000, 1364, 1600)).toBeLessThan(0);
+  });
+});
+
+describe("deriveDurationMinutes (by-class duration mode)", () => {
+  it("back-solves the window so the reference class sails its target time", () => {
+    const laser = boat("ILCA 7 / Laser", 1100);
+    const fleet = [boat("RS400", 942), laser, boat("Topper", 1369)];
+    // duration = 45 × 1369/1100 = 56.0…; the Laser then sails exactly 45 min.
+    const minutes = deriveDurationMinutes(fleet, laser.id, 45);
+    expect(minutes).toBeCloseTo(56.02, 1);
+    // sailing_time = duration × PY_ref/PY_slowest should return the 45 we pinned.
+    expect(minutes * (1100 / 1369)).toBeCloseTo(45, 5);
+  });
+
+  it("equals the reference minutes when the reference IS the slowest boat", () => {
+    const slow = boat("Wayfarer", 1102);
+    const fleet = [boat("RS400", 942), slow];
+    expect(deriveDurationMinutes(fleet, slow.id, 45)).toBe(45);
+  });
+
+  it("grows the window when a slower boat joins, keeping the reference's time fixed", () => {
+    const laser = boat("Laser", 1100);
+    const fast = deriveDurationMinutes([laser, boat("RS400", 942)], laser.id, 45);
+    const slow = deriveDurationMinutes(
+      [laser, boat("RS400", 942), boat("Cruiser", 1500)],
+      laser.id,
+      45,
+    );
+    expect(slow).toBeGreaterThan(fast);
+    expect(fast).toBe(45); // Laser is the slowest in the first fleet → degenerate
+  });
+
+  it("falls back to the reference minutes when the reference is absent or the fleet is empty", () => {
+    expect(deriveDurationMinutes([], 1, 45)).toBe(45);
+    expect(deriveDurationMinutes([boat("Laser", 1100)], null, 45)).toBe(45);
+    expect(deriveDurationMinutes([boat("Laser", 1100)], 9999, 45)).toBe(45);
+  });
+
+  it("feeds buildSchedule so the reference class finishes after exactly its target", () => {
+    const laser = boat("ILCA 7 / Laser", 1100);
+    const fleet = [boat("RS400", 942), laser, boat("Topper", 1369)];
+    const minutes = deriveDurationMinutes(fleet, laser.id, 45);
+    const s = buildSchedule(fleet, minutes)!;
+    const row = s.starts.find((x) => x.classes[0]?.id === laser.id)!;
+    const sailingMs = s.finishFromFirstGunMs - row.startFromFirstGunMs;
+    expect(formatMmSs(sailingMs)).toBe("45:00");
   });
 });
 

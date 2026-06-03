@@ -20,6 +20,39 @@ export function computeStartFromFirstGunMs(
   return durationMs * (1 - classPy / slowestPy);
 }
 
+/**
+ * Total race window (minutes) for "by-class" duration mode: pin one reference
+ * class to `referenceMinutes` on the water and back-solve the window from the
+ * slowest entrant. This is the inverse of the per-class sailing time
+ *   sailing_time = duration × PY_class / PY_slowest
+ * solved for `duration` at the reference class:
+ *   duration = referenceMinutes × PY_slowest / PY_reference
+ *
+ * Because PY_slowest ≥ PY_reference, the derived window is ≥ referenceMinutes;
+ * everything slower than the reference sails longer, everything faster sails
+ * less. The pursuit engine is untouched — this only chooses the `duration` fed
+ * to `buildSchedule`, so a standard race is the same code path with the window
+ * typed directly.
+ *
+ * Returns the raw, unclamped, unrounded minutes (the caller clamps to the app's
+ * duration bounds and decides how to surface an overflow). Falls back to
+ * `referenceMinutes` — i.e. degenerates to a fixed window — when the fleet is
+ * empty or the reference class isn't present (the UI keeps it pinned in, but a
+ * mid-edit gap shouldn't throw). When the reference IS the slowest boat the
+ * result is exactly `referenceMinutes`.
+ */
+export function deriveDurationMinutes(
+  selected: BoatClass[],
+  referenceClassId: number | null,
+  referenceMinutes: number,
+): number {
+  if (selected.length === 0 || referenceClassId === null) return referenceMinutes;
+  const ref = selected.find((c) => c.id === referenceClassId);
+  if (!ref) return referenceMinutes;
+  const slowestPy = Math.max(...selected.map((c) => c.py));
+  return referenceMinutes * (slowestPy / ref.py);
+}
+
 /** Group classes by identical PY (they start simultaneously — spec §2.7). */
 function groupByPy(classes: BoatClass[]): Map<number, BoatClass[]> {
   const groups = new Map<number, BoatClass[]>();

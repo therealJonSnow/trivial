@@ -15,6 +15,13 @@ export const allClasses: BoatClass[] = categories.flatMap((category) =>
 
 const byId = new Map<number, BoatClass>(allClasses.map((c) => [c.id, c]));
 
+/**
+ * Default reference class for by-class duration mode — ILCA 7 / Laser, the
+ * benchmark one-design. `null` only if the dataset ever drops it.
+ */
+export const DEFAULT_REFERENCE_CLASS_ID: number | null =
+  allClasses.find((c) => c.name.startsWith("ILCA 7"))?.id ?? null;
+
 /** Look up classes by id, preserving the requested order, skipping unknown ids. */
 export function classesByIds(ids: number[]): BoatClass[] {
   return ids.map((id) => byId.get(id)).filter((c): c is BoatClass => c !== undefined);

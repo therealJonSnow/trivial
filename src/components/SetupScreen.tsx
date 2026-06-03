@@ -5,9 +5,14 @@ import Link from "next/link";
 import { pyMeta, resolveClasses } from "@/lib/data";
 import { buildSchedule } from "@/lib/schedule";
 import { unlockAudio } from "@/lib/audio";
-import { useCustomClasses, useFavourites, useRace } from "@/store/useRaceStore";
+import {
+  useCustomClasses,
+  useFavourites,
+  useRace,
+  resolveDurationMinutes,
+} from "@/store/useRaceStore";
 import { START_SEQUENCE_OPTIONS, type StartSequence } from "@/lib/timer";
-import { Stepper } from "./Stepper";
+import { DurationCard } from "./DurationCard";
 import { ScheduleList } from "./ScheduleList";
 import { ClassPicker } from "./ClassPicker";
 import { StartConfirm } from "./StartConfirm";
@@ -19,10 +24,16 @@ export function SetupScreen() {
   const {
     selectedIds,
     durationMinutes,
+    durationMode,
+    referenceClassId,
+    referenceMinutes,
     startSequence,
     toggleSelected,
     setSelected,
     setDuration,
+    setDurationMode,
+    setReferenceClass,
+    setReferenceMinutes,
     setStartSequence,
     start,
   } = useRace();
@@ -37,10 +48,33 @@ export function SetupScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const schedule = useMemo(
-    () => buildSchedule(resolveClasses(selectedIds, customClasses), durationMinutes),
-    [selectedIds, durationMinutes, customClasses],
+  const selected = useMemo(
+    () => resolveClasses(selectedIds, customClasses),
+    [selectedIds, customClasses],
   );
+
+  const effectiveDuration = resolveDurationMinutes(
+    { durationMode, durationMinutes, referenceClassId, referenceMinutes },
+    selected,
+  );
+
+  const schedule = useMemo(
+    () => buildSchedule(selected, effectiveDuration),
+    [selected, effectiveDuration],
+  );
+
+  // Keep the reference class pinned in the fleet while in by-class mode (it can
+  // be removed via the fleet picker) — the anchor must be a boat that's racing.
+  useEffect(() => {
+    if (
+      durationMode === "class" &&
+      referenceClassId !== null &&
+      selectedIds.length > 0 &&
+      !selectedIds.includes(referenceClassId)
+    ) {
+      toggleSelected(referenceClassId);
+    }
+  }, [durationMode, referenceClassId, selectedIds, toggleSelected]);
 
   const handleDeleteCustom = (id: number) => {
     deleteCustomClass(id);
@@ -70,42 +104,44 @@ export function SetupScreen() {
         </p>
       </header>
 
-      {/* Matched control pair: equal card height, shared caption + 44px control row. */}
-      <div className="mb-4 grid grid-cols-2 gap-2">
-        <Stepper
-          label="Race duration"
-          value={durationMinutes}
-          unit="min"
-          step={5}
-          onChange={setDuration}
-        />
-        <div className="flex flex-col gap-2 rounded-xl border border-line bg-panel p-3">
-          <label
-            htmlFor="start-sequence"
-            className="font-display text-[11px] font-semibold uppercase tracking-[0.22em] text-muted"
+      <DurationCard
+        selected={selected}
+        durationMode={durationMode}
+        durationMinutes={durationMinutes}
+        referenceClassId={referenceClassId}
+        referenceMinutes={referenceMinutes}
+        onSetDuration={setDuration}
+        onSetDurationMode={setDurationMode}
+        onSetReferenceClass={setReferenceClass}
+        onSetReferenceMinutes={setReferenceMinutes}
+      />
+
+      <div className="mb-4 flex flex-col gap-2 rounded-xl border border-line bg-panel p-3">
+        <label
+          htmlFor="start-sequence"
+          className="font-display text-[11px] font-semibold uppercase tracking-[0.22em] text-muted"
+        >
+          Start sequence
+        </label>
+        <div className="relative">
+          <select
+            id="start-sequence"
+            value={startSequence}
+            onChange={(e) => setStartSequence(e.target.value as StartSequence)}
+            className="h-11 w-full appearance-none rounded-lg bg-line px-3 pr-9 font-mono text-base font-bold tabular-nums text-ink"
           >
-            Start sequence
-          </label>
-          <div className="relative">
-            <select
-              id="start-sequence"
-              value={startSequence}
-              onChange={(e) => setStartSequence(e.target.value as StartSequence)}
-              className="h-11 w-full appearance-none rounded-lg bg-line px-3 pr-9 font-mono text-base font-bold tabular-nums text-ink"
-            >
-              {START_SEQUENCE_OPTIONS.map((seq) => (
-                <option key={seq} value={seq}>
-                  {seq}
-                </option>
-              ))}
-            </select>
-            <span
-              className="pointer-events-none absolute inset-y-0 right-3 flex items-center font-mono text-sm text-muted"
-              aria-hidden
-            >
-              ▾
-            </span>
-          </div>
+            {START_SEQUENCE_OPTIONS.map((seq) => (
+              <option key={seq} value={seq}>
+                {seq}
+              </option>
+            ))}
+          </select>
+          <span
+            className="pointer-events-none absolute inset-y-0 right-3 flex items-center font-mono text-sm text-muted"
+            aria-hidden
+          >
+            ▾
+          </span>
         </div>
       </div>
 

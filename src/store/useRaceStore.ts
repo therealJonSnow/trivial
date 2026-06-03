@@ -8,9 +8,12 @@ import {
   type RaceClock,
   type StartSequence,
 } from "@/lib/timer";
-import { buildSchedule, frameFromSchedule } from "@/lib/schedule";
-import { resolveClasses } from "@/lib/data";
-import type { CustomBoatClass, ScheduleFrame } from "@/lib/types";
+import { buildSchedule, frameFromSchedule, deriveDurationMinutes } from "@/lib/schedule";
+import { resolveClasses, DEFAULT_REFERENCE_CLASS_ID } from "@/lib/data";
+import type { BoatClass, CustomBoatClass, ScheduleFrame } from "@/lib/types";
+
+/** Race-duration source: a fixed total window, or one pinned to a class's time. */
+export type DurationMode = "fixed" | "class";
 
 /** User-defined custom classes — persisted under `trivial.customClasses`. */
 interface CustomClassesState {
@@ -76,6 +79,12 @@ interface RaceState {
   // persisted config
   selectedIds: number[];
   durationMinutes: number;
+  /** How the race window is set: a fixed total, or pinned to a reference class. */
+  durationMode: DurationMode;
+  /** Reference class whose on-water time is pinned in "class" mode. */
+  referenceClassId: number | null;
+  /** Minutes the reference class should sail in "class" mode. */
+  referenceMinutes: number;
   startSequence: StartSequence;
   muted: boolean;
   // ephemeral
@@ -88,6 +97,9 @@ interface RaceState {
   toggleSelected: (id: number) => void;
   setSelected: (ids: number[]) => void;
   setDuration: (minutes: number) => void;
+  setDurationMode: (mode: DurationMode) => void;
+  setReferenceClass: (id: number) => void;
+  setReferenceMinutes: (minutes: number) => void;
   setStartSequence: (sequence: StartSequence) => void;
   toggleMuted: () => void;
   // race actions
@@ -98,15 +110,43 @@ interface RaceState {
   stop: () => void;
 }
 
-const MIN_DURATION = 5;
-const MAX_DURATION = 240;
+export const MIN_DURATION = 5;
+export const MAX_DURATION = 240;
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+
+/** Clamp an arbitrary minutes value to the app's race-window bounds. */
+export const clampDuration = (minutes: number) =>
+  clamp(Math.round(minutes), MIN_DURATION, MAX_DURATION);
+
+type DurationConfig = Pick<
+  RaceState,
+  "durationMode" | "durationMinutes" | "referenceClassId" | "referenceMinutes"
+>;
+
+/**
+ * Effective total race window (minutes) for a given config + fleet. In "fixed"
+ * mode it's the typed window; in "class" mode it's the by-class derivation
+ * clamped to the duration bounds. Shared by the setup preview and race start so
+ * both agree on the window.
+ */
+export function resolveDurationMinutes(
+  config: DurationConfig,
+  selected: BoatClass[],
+): number {
+  if (config.durationMode !== "class") return config.durationMinutes;
+  return clampDuration(
+    deriveDurationMinutes(selected, config.referenceClassId, config.referenceMinutes),
+  );
+}
 
 export const useRace = create<RaceState>()(
   persist(
     (set, get) => ({
       selectedIds: [],
       durationMinutes: 60,
+      durationMode: "fixed",
+      referenceClassId: DEFAULT_REFERENCE_CLASS_ID,
+      referenceMinutes: 45,
       startSequence: "5-4-1",
       muted: false,
       clock: null,
@@ -120,21 +160,45 @@ export const useRace = create<RaceState>()(
             : [...s.selectedIds, id],
         })),
       setSelected: (ids) => set({ selectedIds: ids }),
-      setDuration: (minutes) =>
-        set({ durationMinutes: clamp(Math.round(minutes), MIN_DURATION, MAX_DURATION) }),
+      setDuration: (minutes) => set({ durationMinutes: clampDuration(minutes) }),
+      // Switching to class mode pins a reference (defaulting to ILCA 7, else the
+      // first selected class) and auto-adds it to the fleet so the anchor always
+      // races.
+      setDurationMode: (mode) =>
+        set((s) => {
+          if (mode !== "class") return { durationMode: mode };
+          const ref = s.referenceClassId ?? s.selectedIds[0] ?? null;
+          return {
+            durationMode: mode,
+            referenceClassId: ref,
+            selectedIds:
+              ref !== null && !s.selectedIds.includes(ref)
+                ? [...s.selectedIds, ref]
+                : s.selectedIds,
+          };
+        }),
+      // Choosing a reference auto-adds it to the fleet (decision: the anchor is
+      // always a boat that's actually racing).
+      setReferenceClass: (id) =>
+        set((s) => ({
+          referenceClassId: id,
+          selectedIds: s.selectedIds.includes(id) ? s.selectedIds : [...s.selectedIds, id],
+        })),
+      setReferenceMinutes: (minutes) => set({ referenceMinutes: clampDuration(minutes) }),
       setStartSequence: (sequence) => set({ startSequence: sequence }),
       toggleMuted: () => set((s) => ({ muted: !s.muted })),
 
       // Confirming Start begins a 10s count-in to the first signal and locks the
       // timing frame so mid-race additions never reshuffle existing starts.
       start: () => {
-        const { selectedIds, durationMinutes, startSequence } = get();
+        const s = get();
         const { customClasses } = useCustomClasses.getState();
-        const base = buildSchedule(resolveClasses(selectedIds, customClasses), durationMinutes);
+        const selected = resolveClasses(s.selectedIds, customClasses);
+        const base = buildSchedule(selected, resolveDurationMinutes(s, selected));
         if (!base) return;
         set({
           frame: frameFromSchedule(base),
-          clock: armClock(Date.now(), startSequence, PRE_ROLL_MS),
+          clock: armClock(Date.now(), s.startSequence, PRE_ROLL_MS),
           awaitingStart: false,
         });
       },
@@ -151,9 +215,11 @@ export const useRace = create<RaceState>()(
       // Re-lock the frame against the current fleet (which may have grown).
       reset: () => {
         const now = Date.now();
-        const { selectedIds, durationMinutes, startSequence } = get();
+        const s = get();
+        const { startSequence } = s;
         const { customClasses } = useCustomClasses.getState();
-        const base = buildSchedule(resolveClasses(selectedIds, customClasses), durationMinutes);
+        const selected = resolveClasses(s.selectedIds, customClasses);
+        const base = buildSchedule(selected, resolveDurationMinutes(s, selected));
         if (!base) return;
         set({
           frame: frameFromSchedule(base),
@@ -168,6 +234,9 @@ export const useRace = create<RaceState>()(
       partialize: (s) => ({
         selectedIds: s.selectedIds,
         durationMinutes: s.durationMinutes,
+        durationMode: s.durationMode,
+        referenceClassId: s.referenceClassId,
+        referenceMinutes: s.referenceMinutes,
         startSequence: s.startSequence,
         muted: s.muted,
       }),
