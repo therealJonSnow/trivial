@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { classesByIds } from "@/lib/data";
 import { buildSchedule, startTime } from "@/lib/schedule";
 import { deriveTimer, firstGunEpoch, IMMINENT_MS } from "@/lib/timer";
@@ -10,6 +10,7 @@ import { useRace } from "@/store/useRaceStore";
 import { useNow } from "@/hooks/useNow";
 import { useWakeLock } from "@/hooks/useWakeLock";
 import { useRaceAudio } from "@/hooks/useRaceAudio";
+import { useAudioKeepAlive } from "@/hooks/useAudioKeepAlive";
 import { HoldButton } from "./HoldButton";
 import { StartConfirm } from "./StartConfirm";
 
@@ -65,6 +66,9 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
   } = useRace();
 
   const [confirming, setConfirming] = useState(false);
+  // Once the race has finished and its horn has been acknowledged, freeze the
+  // per-frame tick and release the wake lock — nothing changes after this point.
+  const [settled, setSettled] = useState(false);
 
   const schedule = useMemo(
     () => buildSchedule(classesByIds(selectedIds), durationMinutes, frame ?? undefined),
@@ -72,10 +76,20 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
   );
 
   const paused = clock?.pausedAtEpoch != null;
-  useWakeLock(clock !== null);
-  const now = useNow(clock !== null && !paused);
+  const now = useNow(clock !== null && !paused && !settled);
 
   const view = clock && schedule ? deriveTimer(clock, schedule, now) : null;
+
+  // "Settled" = finished AND past the finish-horn takeover; keep ticking until
+  // then so the strobe, count-in beeps, and finish horn all still fire.
+  const settledNow = view?.phase === "finished" && !view.finishFlash;
+  useEffect(() => {
+    if (settledNow !== settled) setSettled(settledNow);
+  }, [settledNow, settled]);
+
+  useWakeLock(clock !== null && !settled);
+  // Keep the AudioContext from being suspended over a long race (iOS backup).
+  useAudioKeepAlive(clock !== null && !settled);
 
   // Only sound cues while actively counting; pausing/awaiting freezes them.
   const live = view !== null && !paused;
@@ -88,9 +102,10 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
   if (!clock || !schedule || !view) return null;
 
   const gun = firstGunEpoch(clock);
-  const isGo = view.flashing !== null;
-  const isSignal = !isGo && view.signalFlashMs !== null;
-  const isTakeover = isGo || isSignal;
+  const isFinishFlash = view.finishFlash;
+  const isGo = !isFinishFlash && view.flashing !== null;
+  const isSignal = !isFinishFlash && !isGo && view.signalFlashMs !== null;
+  const isTakeover = isGo || isSignal || isFinishFlash;
   const isPreroll = view.phase === "preroll";
   const isWarning = view.phase === "warning";
   const isFinished = view.phase === "finished";
@@ -194,6 +209,16 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
               Sound the horn
             </div>
           </>
+        ) : isFinishFlash ? (
+          <>
+            <div className="font-mono text-clock font-black leading-none text-ground">
+              FINISH
+            </div>
+            <div className="mt-2 text-2xl font-bold text-ground">Race complete</div>
+            <div className="mt-1 text-sm font-semibold uppercase tracking-[0.3em] text-ground/70">
+              Sound the horn
+            </div>
+          </>
         ) : isFinished ? (
           <>
             <div className="font-mono text-clock-sm font-black text-started">FINISH</div>
@@ -284,6 +309,14 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
           >
             Start sequence
           </button>
+        ) : isFinished ? (
+          <button
+            type="button"
+            onClick={stop}
+            className="h-16 w-full rounded-2xl bg-started text-xl font-bold uppercase tracking-wider text-ground"
+          >
+            New race
+          </button>
         ) : (
           <button
             type="button"
@@ -295,10 +328,14 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
             {paused ? "Resume" : "Pause"}
           </button>
         )}
-        <div className="grid grid-cols-2 gap-2">
-          <HoldButton label="Reset" onComplete={reset} />
-          <HoldButton label="Stop" onComplete={stop} />
-        </div>
+        {isFinished ? (
+          <HoldButton label="Rerun same fleet" onComplete={reset} className="w-full" />
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            <HoldButton label="Reset" onComplete={reset} />
+            <HoldButton label="Stop" onComplete={stop} />
+          </div>
+        )}
       </div>
 
       {confirming && (

@@ -147,6 +147,24 @@ describe("horn anticipation + takeover", () => {
     const v = deriveTimer(clock, schedule, GUN + scratch.startFromFirstGunMs - 8_000);
     expect(v.msToNextHorn).toBeCloseTo(8_000, 5);
   });
+
+  it("counts the finish gun in as the next horn once all boats have started", () => {
+    const v = deriveTimer(clock, schedule, GUN + schedule.finishFromFirstGunMs - 8_000);
+    expect(v.nextStart).toBeNull(); // every boat already away
+    expect(v.msToNextHorn).toBeCloseTo(8_000, 5);
+  });
+
+  it("the finish gun takes over for GO_HOLD, then settles silently", () => {
+    const atFinish = deriveTimer(clock, schedule, GUN + schedule.finishFromFirstGunMs);
+    expect(atFinish.phase).toBe("finished");
+    expect(atFinish.finishFlash).toBe(true);
+    expect(atFinish.takeoverKey).toBe("finish");
+
+    const settled = deriveTimer(clock, schedule, GUN + schedule.finishFromFirstGunMs + GO_HOLD_MS);
+    expect(settled.finishFlash).toBe(false);
+    expect(settled.takeoverKey).toBeNull();
+    expect(settled.msToNextHorn).toBeNull(); // nothing left to signal
+  });
 });
 
 describe("postponement (pause)", () => {

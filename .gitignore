@@ -26,10 +26,5 @@ npm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# serwist generated service worker
-/public/sw.js
-/public/sw.js.map
-/public/swe-worker-*.js
-
 # test coverage
 /coverage

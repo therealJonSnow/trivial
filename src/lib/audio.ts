@@ -65,6 +65,24 @@ export function unlockAudio(): void {
   }
 }
 
+/**
+ * Best-effort liveness poke for a long race. iOS/Safari may suspend the
+ * AudioContext (and pause the silent loop) after extended idling or
+ * backgrounding — and `tone()` silently no-ops on a non-running context, which
+ * would drop a gun (the finish horn especially). Re-resume the context and
+ * restart the silent element if either has lapsed. No-op until audio has been
+ * unlocked from a gesture; safe to call frequently.
+ */
+export function keepAudioAlive(): void {
+  if (typeof window === "undefined" || !ctx) return;
+  try {
+    if (ctx.state === "suspended") void ctx.resume();
+    if (silentEl && silentEl.paused) void silentEl.play().catch(() => {});
+  } catch {
+    /* audio unavailable — visuals still convey the sequence */
+  }
+}
+
 /** Play a single tone with click-free attack/release. No-op if not unlocked. */
 function tone(freqHz: number, durationMs: number, peak = 0.32): void {
   if (!ctx || ctx.state !== "running") return;

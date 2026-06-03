@@ -158,6 +158,9 @@ export function DurationCard({
                 ▾
               </span>
             </div>
+            <p className="text-[10px] text-muted">
+              Raced as the timing anchor — kept in the fleet.
+            </p>
           </div>
 
           <div className="grid grid-cols-2 items-center gap-3">

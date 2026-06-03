@@ -74,9 +74,11 @@ export interface TimerView {
   flashing: ScheduledStart | null;
   /** A sequence signal (5/4/1, in ms) currently in its takeover window, or null. */
   signalFlashMs: number | null;
+  /** True while the finish gun is in its takeover window (fires once at time expiry). */
+  finishFlash: boolean;
   /**
-   * Stable id of the active takeover (boat GO or sequence signal), or null.
-   * Used to fire the long horn exactly once on each gun's rising edge.
+   * Stable id of the active takeover (boat GO, sequence signal, or finish), or
+   * null. Used to fire the long horn exactly once on each gun's rising edge.
    */
   takeoverKey: string | null;
   /**
@@ -176,7 +178,15 @@ export function deriveTimer(
     }
   }
 
-  // Next horn of any kind: nearest upcoming sequence signal (−m) or boat start.
+  // Finish-gun takeover: the finish horn fires once at time expiry and holds
+  // briefly before settling to the static "race complete" state. Takes priority
+  // over a boat GO that started within the last GO_HOLD before the finish.
+  const finishFlash =
+    phase === "finished" &&
+    msSinceFirstGun - schedule.finishFromFirstGunMs < GO_HOLD_MS;
+
+  // Next horn of any kind: nearest upcoming sequence signal (−m), boat start, or
+  // the finish gun. Drives the anticipation strobe + count-in beeps for all three.
   let msToNextHorn: number | null = null;
   const consider = (offset: number) => {
     const dt = offset - msSinceFirstGun;
@@ -184,12 +194,15 @@ export function deriveTimer(
   };
   for (const m of signalsMs) consider(-m);
   for (const s of schedule.starts) consider(s.startFromFirstGunMs);
+  consider(schedule.finishFromFirstGunMs);
 
-  const takeoverKey = flashing
-    ? `boat:${flashing.order}`
-    : signalFlashMs !== null
-      ? `sig:${signalFlashMs}`
-      : null;
+  const takeoverKey = finishFlash
+    ? "finish"
+    : flashing
+      ? `boat:${flashing.order}`
+      : signalFlashMs !== null
+        ? `sig:${signalFlashMs}`
+        : null;
 
   return {
     phase,
@@ -199,6 +212,7 @@ export function deriveTimer(
     activeMilestoneMs,
     flashing,
     signalFlashMs,
+    finishFlash,
     takeoverKey,
     msToNextHorn,
     startedOrders,

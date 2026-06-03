@@ -10,6 +10,10 @@ const CATEGORY_LABEL: Record<Category, string> = {
   experimental: "Experimental",
 };
 
+/** Soft bounds for a plausible Portsmouth Yardstick — outside this we warn, not block. */
+const PY_SOFT_MIN = 400;
+const PY_SOFT_MAX = 2000;
+
 interface ClassBrowserProps {
   selectedIds: number[];
   favourites: number[];
@@ -305,45 +309,57 @@ function CustomFormRow({
     if (e.key === "Escape") onCancel();
   };
   const pyVal = Math.round(Number(py));
-  const isValid = name.trim() !== "" && !isNaN(pyVal) && pyVal > 0;
+  const hasPy = py.trim() !== "" && !isNaN(pyVal);
+  const isValid = name.trim() !== "" && hasPy && pyVal > 0;
+  // Soft sanity range — most RYA handicaps sit here. Outside it we warn (likely a
+  // typo) but never block: legitimately extreme classes still save.
+  const outOfRange = hasPy && pyVal > 0 && (pyVal < PY_SOFT_MIN || pyVal > PY_SOFT_MAX);
 
   return (
-    <li className="flex items-center gap-2 px-3 py-2">
-      <input
-        autoFocus
-        type="text"
-        placeholder="Class name"
-        value={name}
-        onChange={(e) => onNameChange(e.target.value)}
-        onKeyDown={handleKey}
-        className="h-9 min-w-0 flex-1 rounded-lg border border-signal/60 bg-ground px-2 text-sm text-ink placeholder:text-muted focus:border-signal focus:outline-none focus:ring-1 focus:ring-signal/60"
-      />
-      <input
-        type="text"
-        inputMode="decimal"
-        placeholder="PY"
-        value={py}
-        onChange={(e) => onPyChange(e.target.value)}
-        onKeyDown={handleKey}
-        className="h-9 w-16 rounded-lg border border-signal/60 bg-ground px-2 text-center font-mono text-sm text-ink placeholder:text-muted focus:border-signal focus:outline-none focus:ring-1 focus:ring-signal/60"
-      />
-      <button
-        type="button"
-        onClick={onSave}
-        disabled={!isValid}
-        aria-label="Save"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-signal text-sm text-ground disabled:opacity-40"
-      >
-        {"✓"}
-      </button>
-      <button
-        type="button"
-        onClick={onCancel}
-        aria-label="Cancel"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line text-sm text-muted active:text-ink"
-      >
-        {"✕"}
-      </button>
+    <li className="px-3 py-2">
+      <div className="flex items-center gap-2">
+        <input
+          autoFocus
+          type="text"
+          placeholder="Class name"
+          value={name}
+          onChange={(e) => onNameChange(e.target.value)}
+          onKeyDown={handleKey}
+          className="h-9 min-w-0 flex-1 rounded-lg border border-signal/60 bg-ground px-2 text-sm text-ink placeholder:text-muted focus:border-signal focus:outline-none focus:ring-1 focus:ring-signal/60"
+        />
+        <input
+          type="text"
+          inputMode="decimal"
+          placeholder="PY"
+          value={py}
+          onChange={(e) => onPyChange(e.target.value)}
+          onKeyDown={handleKey}
+          className="h-9 w-16 rounded-lg border border-signal/60 bg-ground px-2 text-center font-mono text-sm text-ink placeholder:text-muted focus:border-signal focus:outline-none focus:ring-1 focus:ring-signal/60"
+        />
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={!isValid}
+          aria-label="Save"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-signal text-sm text-ground disabled:opacity-40"
+        >
+          {"✓"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label="Cancel"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line text-sm text-muted active:text-ink"
+        >
+          {"✕"}
+        </button>
+      </div>
+      {outOfRange && (
+        <p className="mt-1.5 text-[10px] text-imminent">
+          PY {pyVal} looks unusual — handicaps are typically {PY_SOFT_MIN}–{PY_SOFT_MAX}. Saved
+          as entered.
+        </p>
+      )}
     </li>
   );
 }

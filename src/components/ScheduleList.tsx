@@ -49,7 +49,7 @@ export function ScheduleList({
     <div className={className}>
       {header && (
         <div className="flex items-center gap-3 pb-1.5 font-display text-[10px] font-semibold uppercase tracking-[0.18em] text-imminent">
-          <span className="w-6 shrink-0">#</span>
+          <span className="w-8 shrink-0">#</span>
           <span className="min-w-0 flex-1">Class</span>
           <span className="w-12 shrink-0 text-right">PY</span>
           <span className="w-16 shrink-0 text-right">Timing</span>
@@ -59,7 +59,6 @@ export function ScheduleList({
       <ul className="divide-y divide-line">
         {schedule.starts.map((s, i) => {
           const status = statusOf(s.order, view);
-          const isFirst = s.order === 1;
           return (
             <li
               key={s.order}
@@ -69,9 +68,9 @@ export function ScheduleList({
               } ${animateIn ? "animate-row-rise" : ""}`}
             >
               <span
-                className={`flex h-6 w-6 shrink-0 items-center justify-start rounded font-mono text-[11px] tabular-nums text-muted`}
+                className={`flex h-6 w-8 shrink-0 items-center justify-start rounded font-mono text-[11px] tabular-nums text-muted`}
               >
-                {i+1}
+                {ordinal(s.order)}
               </span>
               <span
                 className={`min-w-0 flex-1 truncate text-[15px] ${

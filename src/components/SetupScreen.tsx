@@ -4,14 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { pyMeta, resolveClasses } from "@/lib/data";
 import { buildSchedule } from "@/lib/schedule";
-import { unlockAudio } from "@/lib/audio";
+import { unlockAudio, playHorn } from "@/lib/audio";
+import { formatClock } from "@/lib/format";
 import {
   useCustomClasses,
   useFavourites,
   useRace,
   resolveDurationMinutes,
 } from "@/store/useRaceStore";
-import { START_SEQUENCE_OPTIONS, type StartSequence } from "@/lib/timer";
+import {
+  PRE_ROLL_MS,
+  SEQUENCES,
+  START_SEQUENCE_OPTIONS,
+  type StartSequence,
+} from "@/lib/timer";
 import { DurationCard } from "./DurationCard";
 import { ScheduleList } from "./ScheduleList";
 import { ThemeToggle } from "./ThemeToggle";
@@ -41,12 +47,21 @@ export function SetupScreen() {
 
   const [confirming, setConfirming] = useState(false);
   const [picking, setPicking] = useState(false);
+  // Client-only "now" for the projected finish estimate — null on the server so
+  // there's no hydration mismatch; refreshed slowly (this is a planning hint).
+  const [nowTs, setNowTs] = useState<number | null>(null);
 
   // First use (no restored race): pre-select favourites per spec §"Favourites".
   useEffect(() => {
     if (selectedIds.length === 0 && favourites.length > 0) setSelected(favourites);
     // run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    setNowTs(Date.now());
+    const id = setInterval(() => setNowTs(Date.now()), 15_000);
+    return () => clearInterval(id);
   }, []);
 
   const selected = useMemo(
@@ -63,6 +78,18 @@ export function SetupScreen() {
     () => buildSchedule(selected, effectiveDuration),
     [selected, effectiveDuration],
   );
+
+  // Wall-clock finish if the race were started right now: count-in + sequence
+  // lead-in + the full window. A planning hint, hence the "if you start now".
+  const finishAt =
+    nowTs !== null && schedule
+      ? new Date(
+          nowTs +
+            PRE_ROLL_MS +
+            SEQUENCES[startSequence].warningMs +
+            effectiveDuration * 60_000,
+        )
+      : null;
 
   // Keep the reference class pinned in the fleet while in by-class mode (it can
   // be removed via the fleet picker) — the anchor must be a boat that's racing.
@@ -121,12 +148,24 @@ export function SetupScreen() {
       />
 
       <div className="mb-4 flex flex-col gap-2 rounded-xl border border-line bg-panel p-3">
-        <label
-          htmlFor="start-sequence"
-          className="font-display text-[11px] font-semibold uppercase tracking-[0.22em] text-muted"
-        >
-          Start sequence
-        </label>
+        <div className="flex items-center justify-between gap-2">
+          <label
+            htmlFor="start-sequence"
+            className="font-display text-[11px] font-semibold uppercase tracking-[0.22em] text-muted"
+          >
+            Start sequence
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              unlockAudio();
+              playHorn();
+            }}
+            className="flex h-7 items-center gap-1.5 rounded-md border border-imminent px-2.5 font-display text-[11px] font-semibold uppercase tracking-[0.14em] text-imminent active:bg-imminent active:text-ground"
+          >
+            🔊 Test horn
+          </button>
+        </div>
         <div className="relative">
           <select
             id="start-sequence"
@@ -176,7 +215,17 @@ export function SetupScreen() {
 
           <p className="border-t border-line px-3 py-2 text-[11px] text-muted">
             Slowest away first at <span className="font-mono text-ink">+0:00</span> — fastest
-            chases, all converge at the finish.
+            chases, all converge at the finish
+            {finishAt && (
+              <>
+                {" "}
+                <span className="font-mono tabular-nums text-ink">
+                  ≈ {formatClock(finishAt)}
+                </span>{" "}
+                if you start now
+              </>
+            )}
+            .
           </p>
         </section>
       ) : (

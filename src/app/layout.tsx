@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Saira_Condensed, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { ServiceWorker } from "@/components/ServiceWorker";
 
 /**
  * Type system. Self-hosted by next/font at build time — no runtime fetch, so the
@@ -68,7 +67,6 @@ export default function RootLayout({
       </head>
       <body>
         {children}
-        <ServiceWorker />
       </body>
     </html>
   );

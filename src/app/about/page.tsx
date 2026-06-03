@@ -36,77 +36,96 @@ export default function AboutPage() {
           </div>
         </header>
 
-        <Section title="Pursuit racing">
+        <Section title="What this app does">
           <p>
-            Slower boats start first, faster boats chase — all converging at the finish gun.
-            No time correction: whoever leads at the gun wins.
+            In a pursuit race the slower boats start first and the faster boats start later,
+            so the whole fleet should arrive at the finish together. Whoever is in front when
+            the finish gun sounds wins — there is no handicap sum to work out afterwards.
           </p>
-          <div className="my-4 rounded-xl border border-line bg-panel px-4 py-3">
-            <p className="font-display text-[11px] uppercase tracking-[0.2em] text-muted">
-              Start delay
-            </p>
-            <p className="mt-2 font-mono text-sm text-ink">
-              duration &times; (1 &minus; class&nbsp;PY &divide; slowest&nbsp;PY)
-            </p>
-          </div>
-          <p>
-            Higher PY = slower. The slowest boat (highest PY) starts at T=0; the fastest
-            (scratch) starts last. Trivial uses {pyMeta.source} numbers updated{" "}
-            <span className="font-mono tabular-nums text-ink">{pyMeta.lastUpdated}</span>.
+          <p className="mt-2">
+            Trivial works out each class&apos;s start time for you and counts down to every gun.
+            Your job is simple: <strong className="font-semibold text-ink">make your usual
+            sound signal each time the screen flashes orange.</strong>
           </p>
         </Section>
 
-        <Section title="Setup">
-          <ol className="space-y-2.5">
-            <Step n={1} label="Duration">
-              How long the slowest boat sails. 60&nbsp;min is typical.
+        <Section title="Before the race — setup">
+          <ol className="space-y-3">
+            <Step n={1} label="Set the race length">
+              On the <em className="text-ink">Race duration</em> card, leave it on{" "}
+              <strong className="font-semibold text-ink">Fixed</strong> and use{" "}
+              <strong className="font-semibold text-ink">&minus;</strong> /{" "}
+              <strong className="font-semibold text-ink">+</strong> to set the minutes
+              (60&nbsp;is typical). If unsure, leave it as it is.
             </Step>
-            <Step n={2} label="Start sequence">
-              <strong className="font-semibold text-ink">5-4-1</strong> or{" "}
-              <strong className="font-semibold text-ink">3-2-1</strong> — minutes before each
-              class&apos;s start that warning, prep, and go signals fire.
+            <Step n={2} label="Choose your classes">
+              Tap <em className="text-ink">Edit fleet</em>, type a class name, and tap it to
+              add it. Tap the star (&#9733;) next to a class to have it ready next time.
             </Step>
-            <Step n={3} label="Fleet">
-              Tap <em className="text-ink">Edit fleet</em> and search for classes by name.
-              Tap a row to add it. Star (&#9733;) a class to pre-select it next session.
+            <Step n={3} label="Check the start order">
+              The list shows the order boats will start —{" "}
+              <strong className="font-semibold text-ink">slowest first</strong>. The line
+              underneath shows the time the race should finish if you start now.
             </Step>
-            <Step n={4} label="Custom classes">
-              Tap <em className="text-ink">Add custom class</em> at the top of the fleet
-              picker to enter a local or modified PY.
+            <Step n={4} label="Test the sound">
+              Turn your phone&apos;s volume up and tap{" "}
+              <strong className="font-semibold text-ink">🔊 Test horn</strong>. If you hear a
+              horn, you are ready. <strong className="font-semibold text-ink">Do this every
+              time</strong> — it also switches off the phone&apos;s silent mode for the race.
             </Step>
           </ol>
         </Section>
 
         <Section title="Running the race">
-          <ol className="space-y-2.5">
-            <Step n={1} label="Start Race">
-              Tap the button and confirm. A 10-second count-in begins.
+          <ol className="space-y-3">
+            <Step n={1} label="Start">
+              Tap the big <strong className="font-semibold text-ink">Start Race</strong>{" "}
+              button and tap to confirm. A short &ldquo;Get ready&rdquo; countdown begins.
             </Step>
-            <Step n={2} label="Signal each class">
-              The timer counts down to each start and calls the class name 30 seconds ahead.
-              Give the signal when the countdown hits zero.
+            <Step n={2} label="Watch and listen">
+              Prop the phone where you can see and hear it. The big number counts down to the
+              next gun and tells you which class is next. The last few seconds beep.
             </Step>
-            <Step n={3} label="Finish gun">
-              All boats sail until the duration expires. First across the line wins.
+            <Step n={3} label="Signal each start">
+              At every start the whole screen flashes{" "}
+              <strong className="font-semibold text-imminent">orange</strong>, sounds a horn,
+              and shows the class name. <strong className="font-semibold text-ink">Make your
+              start signal then.</strong> Trivial moves straight on to the next class.
+            </Step>
+            <Step n={4} label="Finish">
+              When the time is up the screen flashes orange again and sounds the{" "}
+              <strong className="font-semibold text-ink">finish horn</strong>. Make the finish
+              signal. Time to wrap up! Note the boats positions on the water and you have your finish order.
             </Step>
           </ol>
         </Section>
 
-        <Section title="Late entrants">
-          <p>
-            Tap <em className="text-ink">Fleet</em> on the timer screen and add the class.
-            Trivial slots it in against the locked race frame — existing starts don&apos;t
-            reshuffle. If its start time has passed, a{" "}
-            <strong className="font-semibold text-started">START NOW</strong> alert fires.
-          </p>
+        <Section title="If you need to stop or fix something">
+          <ul className="space-y-2">
+            <Tip>
+              <strong className="font-semibold text-ink">Pause / Resume</strong> — tap{" "}
+              <em className="text-ink">Pause</em> to hold the countdown (a postponement), then{" "}
+              <em className="text-ink">Resume</em> to carry on where you left off.
+            </Tip>
+            <Tip>
+              <strong className="font-semibold text-ink">Start over</strong> — press and hold{" "}
+              <em className="text-ink">Reset</em> to run the same fleet again, or hold{" "}
+              <em className="text-ink">Stop</em> to end and go back to setup.
+            </Tip>
+            <Tip>
+              <strong className="font-semibold text-ink">Quiet the phone</strong> — the speaker
+              button (top-left) silences Trivial&apos;s beeps.
+            </Tip>
+          </ul>
         </Section>
 
-        <Section title="Tips">
-          <ul className="space-y-2">
-            <Tip>Mute audio during briefings; re-enable before starting.</Tip>
-            <Tip>Classes with identical PY share a single gun — check the schedule beforehand.</Tip>
-            <Tip>Trivial works offline. Add it to your home screen for quick water access.</Tip>
-          </ul>
+        <Section title="A boat turns up late">
+          <p>
+            Tap <em className="text-ink">+ Class</em> on the timer screen and add it. Trivial
+            fits it into the running race without disturbing the other starts. If its start
+            time has already gone by, you&apos;ll see a{" "}
+            <strong className="font-semibold text-started">START NOW</strong> alert.
+          </p>
         </Section>
 
         <Section title="Open source">
