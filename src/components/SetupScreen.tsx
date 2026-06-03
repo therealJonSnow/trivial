@@ -14,6 +14,7 @@ import {
 import { START_SEQUENCE_OPTIONS, type StartSequence } from "@/lib/timer";
 import { DurationCard } from "./DurationCard";
 import { ScheduleList } from "./ScheduleList";
+import { ThemeToggle } from "./ThemeToggle";
 import { ClassPicker } from "./ClassPicker";
 import { StartConfirm } from "./StartConfirm";
 
@@ -92,12 +93,15 @@ export function SetupScreen() {
           <h1 className="font-display text-3xl font-bold uppercase leading-none tracking-[0.32em] text-ink">
             Trivial
           </h1>
-          <Link
-            href="/about"
-            className="mt-1 font-mono text-[10px] tabular-nums text-muted underline-offset-2 active:text-ink"
-          >
-            About & Guide ›
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/about"
+              className="mt-1 font-mono text-[10px] tabular-nums text-muted underline-offset-2 active:text-ink"
+            >
+              About & Guide ›
+            </Link>
+            <ThemeToggle />
+          </div>
         </div>
         <p className="mt-1.5 font-display text-[11px] font-medium uppercase tracking-[0.28em] text-signal">
           Pursuit race start timer
