@@ -131,9 +131,6 @@ export function StartCard({
               )}
             >
               {statusLabel}
-              {!isGo && !isAway && (
-                <span className="ml-2 tabular-nums">{ordinal(start.order)}</span>
-              )}
             </p>
             <h3
               className={classNames(
