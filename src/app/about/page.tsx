@@ -178,7 +178,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Step({ n, label, children }: { n: number; label: string; children: React.ReactNode }) {
   return (
     <li className="flex gap-3">
-      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-signal font-mono text-[11px] font-bold text-ground">
+      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-signal font-mono text-[11px] font-bold text-ground">
         {n}
       </span>
       <span>

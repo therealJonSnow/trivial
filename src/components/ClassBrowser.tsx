@@ -175,7 +175,7 @@ export function ClassBrowser({
                     className="flex min-h-[48px] flex-1 items-center gap-3 px-3 py-2 text-left disabled:opacity-100"
                   >
                     <span
-                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border text-xs leading-none transition-colors ${
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs leading-none transition-colors ${
                         locked
                           ? "border-started bg-started text-ground"
                           : selected
@@ -193,7 +193,7 @@ export function ClassBrowser({
                       {c.name}
                     </span>
                     <span
-                      className={`rounded px-1.5 py-0.5 font-mono text-xs tabular-nums ${
+                      className={`rounded-md px-1.5 py-0.5 font-mono text-xs tabular-nums ${
                         selected || locked ? "text-ink" : "text-muted"
                       }`}
                     >
@@ -239,7 +239,7 @@ export function ClassBrowser({
                   onClick={startAdd}
                   className="flex w-full items-center gap-3 px-3 py-3 text-left active:bg-line/40"
                 >
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border border-dashed border-signal text-xs leading-none text-signal">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-dashed border-signal text-xs leading-none text-signal">
                     +
                   </span>
                   <span className="text-[15px] text-signal">Add custom class</span>
@@ -421,7 +421,7 @@ function ClassGroup({
                 className="flex min-h-[48px] flex-1 items-center gap-3 px-3 py-2 text-left disabled:opacity-100"
               >
                 <span
-                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border text-xs leading-none transition-colors ${
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs leading-none transition-colors ${
                     locked
                       ? "border-started bg-started text-ground"
                       : selected
@@ -444,7 +444,7 @@ function ClassGroup({
                   )}
                 </span>
                 <span
-                  className={`rounded px-1.5 py-0.5 font-mono text-xs tabular-nums ${
+                  className={`rounded-md px-1.5 py-0.5 font-mono text-xs tabular-nums ${
                     selected || locked ? "text-ink" : "text-muted"
                   }`}
                 >

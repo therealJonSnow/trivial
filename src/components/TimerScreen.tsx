@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { classesByIds } from "@/lib/data";
 import { buildSchedule, startTime } from "@/lib/schedule";
 import { deriveTimer, firstGunEpoch, IMMINENT_MS } from "@/lib/timer";
@@ -66,6 +66,9 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
   } = useRace();
 
   const [confirming, setConfirming] = useState(false);
+  // Top fade on the fleet queue — only once it's actually scrolled off its top,
+  // so the base (unscrolled) state stays clean.
+  const [queueScrolled, setQueueScrolled] = useState(false);
   // Once the race has finished and its horn has been acknowledged, freeze the
   // per-frame tick and release the wake lock — nothing changes after this point.
   const [settled, setSettled] = useState(false);
@@ -115,9 +118,11 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
     view.msToNextHorn !== null &&
     view.msToNextHorn <= IMMINENT_MS;
 
-  const upcoming = schedule.starts
-    .filter((s) => !view.startedOrders.includes(s.order))
-    .slice(0, 4);
+  // The full queue of not-yet-started classes — the list scrolls when it
+  // overflows so the whole fleet is reachable, not just the next few.
+  const upcoming = schedule.starts.filter(
+    (s) => !view.startedOrders.includes(s.order),
+  );
 
   const primaryColour = isImminent ? "text-imminent" : isWarning ? "text-ink" : "text-next";
   const strobe = isImminent && !paused ? "motion-safe:animate-strobe" : "";
@@ -270,33 +275,58 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
         )}
       </div>
 
-      {/* upcoming queue */}
+      {/* upcoming queue — zebra-striped table; scrolls when the fleet overflows */}
       {!isTakeover && upcoming.length > 0 && (
-        <ul className="mb-3 max-h-44 space-y-1 overflow-y-auto">
-          {upcoming.map((s) => {
-            const isNext = view.nextStart?.order === s.order;
-            return (
-              <li
-                key={s.order}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 ${
-                  isNext ? "bg-panel" : "bg-panel/40"
-                }`}
-              >
-                <span className="w-8 shrink-0 font-mono text-xs text-muted">
-                  {ordinal(s.order)}
-                </span>
-                <span
-                  className={`min-w-0 flex-1 truncate text-sm ${isNext ? "text-next" : "text-muted"}`}
-                >
-                  {s.classes.map((c) => c.name).join(" + ")}
-                </span>
-                <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
-                  {formatClock(startTime(s, gun))}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="relative mb-3 overflow-hidden rounded-lg">
+          <ul
+            className="max-h-44 overflow-y-auto"
+            onScroll={(e) => setQueueScrolled(e.currentTarget.scrollTop > 0)}
+          >
+            {(() => {
+              // Stripe parity counts only the non-active rows, so the pattern is
+              // always signal → no-bg → zebra → … and stays stable as started
+              // boats drop off the top of the queue.
+              let stripe = -1;
+              return upcoming.map((s) => {
+                const isNext = view.nextStart?.order === s.order;
+                if (!isNext) stripe += 1;
+                const tone = isNext
+                  ? "bg-signal"
+                  : stripe % 2 === 1
+                    ? "bg-panel"
+                    : "";
+                const meta = isNext ? "text-black/70" : "text-muted";
+                return (
+                  <li
+                    key={s.order}
+                    className={`flex items-center gap-3 px-3 py-2.5 ${tone}`}
+                  >
+                    <span className={`w-8 shrink-0 font-mono text-xs tabular-nums ${meta}`}>
+                      {ordinal(s.order)}
+                    </span>
+                    <span
+                      className={`min-w-0 flex-1 truncate text-sm ${
+                        isNext ? "font-semibold text-black" : "text-ink"
+                      }`}
+                    >
+                      {s.classes.map((c) => c.name).join(" + ")}
+                    </span>
+                    <span className={`shrink-0 font-mono text-xs tabular-nums ${meta}`}>
+                      {formatClock(startTime(s, gun))}
+                    </span>
+                  </li>
+                );
+              });
+            })()}
+          </ul>
+          {/* Fade the top edge once scrolled, signalling more fleet above. */}
+          <div
+            aria-hidden
+            className={`pointer-events-none absolute inset-x-0 top-0 h-7 bg-gradient-to-b from-ground to-transparent transition-opacity duration-200 ${
+              queueScrolled ? "opacity-100" : "opacity-0"
+            }`}
+          />
+        </div>
       )}
 
       {/* controls */}

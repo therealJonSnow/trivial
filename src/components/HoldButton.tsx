@@ -51,6 +51,9 @@ export function HoldButton({
 
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
+  const holding = progress > 0;
+  const text = holding ? `Hold to ${label}…` : label;
+
   return (
     <button
       type="button"
@@ -58,15 +61,32 @@ export function HoldButton({
       onPointerUp={stop}
       onPointerLeave={stop}
       onPointerCancel={stop}
-      className={`relative h-12 select-none overflow-hidden rounded-lg border border-line text-sm font-semibold uppercase tracking-wider text-muted ${className}`}
+      className={`relative h-12 select-none overflow-hidden rounded-lg border bg-panel text-sm font-semibold uppercase tracking-wider transition-colors ${
+        holding ? "border-danger" : "border-line"
+      } ${className}`}
       style={{ touchAction: "none" }}
     >
+      {/* Solid danger fill sweeps left→right as the hold progresses. The panel
+          base above keeps the page (incl. the amber buzzer takeover) from
+          showing through the button. */}
       <span
         aria-hidden
-        className="absolute inset-y-0 left-0 bg-danger/80"
+        className="absolute inset-y-0 left-0 bg-danger"
         style={{ width: `${progress * 100}%` }}
       />
-      <span className="relative">{progress > 0 ? `Hold to ${label}…` : label}</span>
+      {/* Two stacked labels: the muted base reads on the panel; a light copy is
+          clipped to the fill so each character flips to readable as the red
+          passes over it — correct contrast in both light and dark themes. */}
+      <span className="absolute inset-0 flex items-center justify-center text-muted">
+        {text}
+      </span>
+      <span
+        aria-hidden
+        className="absolute inset-0 flex items-center justify-center text-ground"
+        style={{ clipPath: `inset(0 ${(1 - progress) * 100}% 0 0)` }}
+      >
+        {text}
+      </span>
     </button>
   );
 }

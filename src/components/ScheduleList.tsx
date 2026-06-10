@@ -15,6 +15,9 @@ interface ScheduleListProps {
   header?: boolean;
   /** Stagger rows in on mount (setup preview only). */
   animateIn?: boolean;
+  /** Horizontal gutter on the header + each row. Put padding here (not on a
+   *  wrapper) so zebra row backgrounds bleed to the container's edges. */
+  gutterClass?: string;
   className?: string;
 }
 
@@ -41,6 +44,7 @@ export function ScheduleList({
   firstGunEpoch,
   header = true,
   animateIn = false,
+  gutterClass = "px-1.5",
   className = "",
 }: ScheduleListProps) {
   const showClock = firstGunEpoch !== undefined;
@@ -48,7 +52,7 @@ export function ScheduleList({
   return (
     <div className={className}>
       {header && (
-        <div className="flex items-center gap-3 pb-1.5 font-display text-[10px] font-semibold uppercase tracking-[0.18em] text-imminent">
+        <div className={`field-label flex items-center gap-3 pb-2 ${gutterClass}`}>
           <span className="w-8 shrink-0">#</span>
           <span className="min-w-0 flex-1">Class</span>
           <span className="w-12 shrink-0 text-right">PY</span>
@@ -59,35 +63,38 @@ export function ScheduleList({
       <ul className="divide-y divide-line">
         {schedule.starts.map((s, i) => {
           const status = statusOf(s.order, view);
+          // Subtle zebra only in the static setup preview — live status colours
+          // own the row background once the race is running.
+          const zebra = preview && i % 2 === 0 ? "bg-zebra" : "";
           return (
             <li
               key={s.order}
               style={animateIn ? { animationDelay: `${Math.min(i, 12) * 45}ms` } : undefined}
-              className={`flex items-center gap-3 py-2.5 ${
+              className={`flex items-center gap-3 py-3 ${gutterClass} ${zebra} ${
                 status === "starting" ? "animate-pulse" : ""
               } ${animateIn ? "animate-row-rise" : ""}`}
             >
               <span
-                className={`flex h-6 w-8 shrink-0 items-center justify-start rounded font-mono text-[11px] tabular-nums text-muted`}
+                className={`flex h-6 w-8 shrink-0 items-center justify-start rounded-md font-mono text-[13px] font-medium tabular-nums text-muted`}
               >
                 {ordinal(s.order)}
               </span>
               <span
-                className={`min-w-0 flex-1 truncate text-[15px] ${
+                className={`min-w-0 flex-1 truncate text-base ${
                   preview ? "text-ink" : STATUS_TEXT[status]
                 }`}
               >
                 {s.classes.map((c) => c.name).join(" + ")}
               </span>
-              <span className="w-12 shrink-0 text-right font-mono text-xs tabular-nums text-muted">
+              <span className="w-12 shrink-0 text-right font-mono text-[13px] tabular-nums text-muted">
                 {s.py}
               </span>
               {/* Time after the first gun — ascends with start order (first = +0:00). */}
-              <span className="w-16 shrink-0 text-right font-mono text-sm font-medium tabular-nums text-ink">
+              <span className="w-16 shrink-0 text-right font-mono text-base font-semibold tabular-nums text-ink">
                 +{formatMmSs(s.startFromFirstGunMs)}
               </span>
               {showClock && (
-                <span className="w-20 shrink-0 text-right font-mono text-xs tabular-nums text-muted">
+                <span className="w-20 shrink-0 text-right font-mono text-[13px] tabular-nums text-muted">
                   {formatClock(startTime(s, firstGunEpoch))}
                 </span>
               )}

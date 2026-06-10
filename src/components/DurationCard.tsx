@@ -46,7 +46,7 @@ function StepRow({
         type="button"
         aria-label={`Decrease ${label}`}
         onClick={() => onChange(value - step)}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-line text-2xl font-bold leading-none text-ink active:bg-signal active:text-ground"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-line-strong bg-line text-2xl font-bold leading-none text-ink active:bg-signal active:text-ground"
       >
         −
       </button>
@@ -58,7 +58,7 @@ function StepRow({
         type="button"
         aria-label={`Increase ${label}`}
         onClick={() => onChange(value + step)}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-line text-2xl font-bold leading-none text-ink active:bg-signal active:text-ground"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-line-strong bg-line text-2xl font-bold leading-none text-ink active:bg-signal active:text-ground"
       >
         +
       </button>
@@ -98,26 +98,24 @@ export function DurationCard({
   const overflowed = Math.round(rawMinutes) > MAX_DURATION;
 
   return (
-    <div className="mb-4 flex flex-col gap-3 rounded-xl border border-line bg-panel p-3">
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-display text-[11px] font-semibold uppercase tracking-[0.22em] text-muted">
-          Race duration
-        </span>
-        <div className="flex rounded-lg bg-line p-0.5" role="group" aria-label="Duration mode">
+    <div className="card mb-4 flex flex-col gap-3">
+        <h2 className="card-title">Race duration</h2>
+        <div className="w-full flex rounded-lg border border-line-strong bg-line p-0.5" role="group" aria-label="Duration mode">
           {MODES.map((m) => (
             <button
               key={m.value}
               type="button"
               aria-pressed={durationMode === m.value}
               onClick={() => onSetDurationMode(m.value)}
-              className={`rounded-md px-2.5 py-1 font-display text-[11px] font-semibold uppercase tracking-[0.14em] transition-colors ${
-                durationMode === m.value ? "bg-signal text-ground" : "text-muted active:text-ink"
+              className={`rounded-md flex-1 px-3 py-1.5 font-display text-[13px] font-semibold transition-colors ${
+                durationMode === m.value
+                  ? "bg-signal text-ground"
+                  : "text-muted active:text-ink"
               }`}
             >
               {m.label}
             </button>
           ))}
-        </div>
       </div>
 
       {!isClass ? (
@@ -131,10 +129,7 @@ export function DurationCard({
       ) : (
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="reference-class"
-              className="font-display text-[10px] font-semibold uppercase tracking-[0.2em] text-muted"
-            >
+            <label htmlFor="reference-class" className="field-label">
               Reference class
             </label>
             <div className="relative">
@@ -142,7 +137,7 @@ export function DurationCard({
                 id="reference-class"
                 value={referenceClassId ?? ""}
                 onChange={(e) => onSetReferenceClass(Number(e.target.value))}
-                className="h-11 w-full appearance-none rounded-lg bg-line px-3 pr-9 font-mono text-base font-bold text-ink"
+                className="select-field"
               >
                 {fleet.length === 0 && <option value="">Add a class to the fleet</option>}
                 {fleet.map((c) => (
@@ -151,19 +146,13 @@ export function DurationCard({
                   </option>
                 ))}
               </select>
-              <span
-                className="pointer-events-none absolute inset-y-0 right-3 flex items-center font-mono text-sm text-muted"
-                aria-hidden
-              >
+              <span className="select-chevron" aria-hidden>
                 ▾
               </span>
             </div>
-            <p className="text-[10px] text-muted">
-              Raced as the timing anchor — kept in the fleet.
-            </p>
+            <p className="hint">Raced as the timing anchor — kept in the fleet.</p>
           </div>
 
-          <div className="grid grid-cols-2 items-center gap-3">
             <StepRow
               label="Reference minutes"
               value={referenceMinutes}
@@ -171,20 +160,23 @@ export function DurationCard({
               step={5}
               onChange={onSetReferenceMinutes}
             />
-            <div className="text-right">
-              <div className="font-display text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
-                Total race
-              </div>
-              <div className="font-mono text-2xl font-medium leading-tight tabular-nums text-ink">
-                ≈ {effectiveMinutes} min
-              </div>
+            <div className="relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-lg border border-line-strong bg-panel-2 py-3.5 pl-5 pr-4">
+              {/* Signal accent rail — marks this as the derived/computed value. */}
+              <span className="absolute inset-y-0 left-0 w-1.5 bg-signal" aria-hidden />
               {refClass && (
-                <div className="font-mono text-[11px] tabular-nums text-signal">
-                  {refClass.name.split(" / ")[0]} sails {referenceMinutes} min
-                </div>
+                <p className="text-base max-w-[46%]">
+                  {refClass.name.split(" / ")[0]} sails {referenceMinutes} min on the water
+                </p>
               )}
+              <div className="flex flex-col items-end gap-1">
+                <span className="field-label">Total race</span>
+                <div className="flex items-baseline gap-1 font-mono leading-none tabular-nums">
+                  <span className="text-lg font-medium text-muted">≈</span>
+                  <span className="text-4xl font-bold text-ink">{effectiveMinutes}</span>
+                  <span className="text-base font-medium text-muted">min</span>
+                </div>
+              </div>
             </div>
-          </div>
 
           {overflowed && (
             <p className="rounded-lg bg-imminent/10 px-2.5 py-1.5 text-[11px] text-imminent">

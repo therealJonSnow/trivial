@@ -15,8 +15,10 @@
   --color-panel: #0e131a;
   --color-panel-2: #131b24;
   --color-line: #1c252f;
+  --color-line-strong: #3a4a58; /* visible control outline against panel fills */
+  --color-zebra: #0c121a; /* faint alternating row lift */
   --color-ink: #f2f6fa;
-  --color-muted: #7c8a99;
+  --color-muted: #97a4b2; /* secondary meta — AAA on the near-black ground */
   --color-imminent: #ffb000;
   --color-started: #3ddc84;
   --color-next: #ffffff;
@@ -33,13 +35,15 @@
   --color-panel: #ffffff;
   --color-panel-2: #e6edf3;
   --color-line: #ccd8e2;
+  --color-line-strong: #7c8fa0; /* visible control outline against the grey fills */
+  --color-zebra: #eef4f9; /* faint alternating row lift over white panels */
   --color-ink: #0b1722;
-  --color-muted: #586775;
+  --color-muted: #3f4e5b; /* secondary meta — retuned to clear AA on white */
   --color-imminent: #b45e00; /* deep amber — light text reads on the fill */
   --color-started: #157f47;
   --color-next: #0b1722; /* max emphasis = darkest on a light ground */
   --color-danger: #c62a20;
-  --color-signal: #0e7c8a; /* deep teal */
+  --color-signal: #0c6c79; /* deep teal — AA on the light ground */
   --grid-line: rgba(80, 100, 120, 0.08);
   --horizon-glow: rgba(14, 124, 138, 0.06);
 }
@@ -58,6 +62,77 @@ body {
 /* Keep the oversized clock from being selected on long-press. */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+/* Visible keyboard/AT focus on every interactive control. Mouse/touch taps
+   don't trigger :focus-visible, so this never shows during normal racing use. */
+:focus-visible {
+  outline: 2px solid var(--color-signal);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ---- Type & control system ---------------------------------------------- */
+/* One set of decisions, applied everywhere. The governing rule: the squared
+   `display` face carries all UI chrome (titles, labels, buttons); `mono` is
+   reserved for DATA — times, PY numbers, durations, the selected class value —
+   so the interface reads like a maritime instrument readout. */
+/* Border-radius scale — one decision per element role, no off-scale values:
+     chip      rounded-md  (6px)   small inline bits: data chips, badges,
+                                   checkbox/add squares, concentric toggle items
+     control   rounded-lg  (8px)   interactive controls + nested sub-panels:
+                                   buttons, selects, inputs, steppers, rows
+     container rounded-xl  (12px)  top-level cards, panels, sections, lists
+     hero      rounded-2xl (16px)  full-width CTAs (h-14/16) + overlays/sheets
+     pill      rounded-full        pills & circles
+   Concentric exception: an item nested tight inside a control (e.g. the
+   segmented-toggle buttons inside a rounded-lg track) drops one tier to chip.
+
+   Border width — `border` (1px) is the universal default for every standard
+   control, card and input. `border-2` (2px) is reserved for the oversized
+   race-screen buttons and status pills, where the heavier weight reads at a
+   glance in glare; it is never used on the normal-density setup controls. */
+@layer components {
+  /* Raised surface. Every top-level box is a card with one radius + padding. */
+  .card {
+    @apply rounded-xl border border-line bg-panel p-4;
+  }
+
+  /* H2 — the prominent title of a card/section. Sentence case to sit a clear
+     step above the uppercase structural labels nested inside it. */
+  .card-title {
+    @apply font-display text-lg font-semibold leading-none text-ink;
+  }
+
+  /* Structural label — field labels and table column headers share one style:
+     uppercase, tracked, quiet. The instrument's printed legends. */
+  .field-label {
+    @apply font-display text-[11px] font-semibold uppercase leading-none tracking-[0.14em] text-muted;
+  }
+
+  /* Secondary explanatory copy. One size for every hint/caption. */
+  .hint {
+    @apply text-[13px] leading-relaxed text-muted;
+  }
+
+  /* Buttons — exactly two treatments. `primary` (solid signal) for the main
+     affordance in a region; `secondary` (outline signal) for everything else.
+     The big amber START RACE is the page's sole top-level CTA and stays bespoke. */
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg border border-signal px-3 py-2 font-display text-sm font-semibold text-signal transition-colors active:bg-signal active:text-ground;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-signal px-3 py-2 font-display text-sm font-semibold text-ground transition-opacity active:opacity-90;
+  }
+
+  /* Dropdown <select> — squared instrument control. Wrap in `relative` and add
+     a `.select-chevron` sibling for the ▾. */
+  .select-field {
+    @apply h-11 w-full appearance-none rounded-lg border border-line-strong bg-line px-3 pr-9 font-mono text-base font-bold text-ink;
+  }
+  .select-chevron {
+    @apply pointer-events-none absolute inset-y-0 right-3 flex items-center font-mono text-lg font-bold text-ink;
+  }
 }
 
 /* ---- Instrument surface -------------------------------------------------- */

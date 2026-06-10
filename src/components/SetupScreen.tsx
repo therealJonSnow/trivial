@@ -6,6 +6,7 @@ import { pyMeta, resolveClasses } from "@/lib/data";
 import { buildSchedule } from "@/lib/schedule";
 import { unlockAudio, playHorn } from "@/lib/audio";
 import { formatClock } from "@/lib/format";
+import { exportSchedulePdf } from "@/lib/exportPdf";
 import {
   useCustomClasses,
   useFavourites,
@@ -112,7 +113,7 @@ export function SetupScreen() {
   const count = selectedIds.length;
 
   return (
-    <div className="instrument-bg mx-auto flex min-h-dvh max-w-screen flex-col px-4 pb-28 pt-[max(1rem,env(safe-area-inset-top))]">
+    <div className="instrument-bg mx-auto flex min-h-dvh max-w-screen flex-col px-4 pb-40 pt-[max(1rem,env(safe-area-inset-top))]">
       <div className="min-h-full max-w-md mx-auto">
 
       <header className="mb-5">
@@ -147,73 +148,85 @@ export function SetupScreen() {
         onSetReferenceMinutes={setReferenceMinutes}
       />
 
-      <div className="mb-4 flex flex-col gap-2 rounded-xl border border-line bg-panel p-3">
-        <div className="flex items-center justify-between gap-2">
-          <label
-            htmlFor="start-sequence"
-            className="font-display text-[11px] font-semibold uppercase tracking-[0.22em] text-muted"
-          >
-            Start sequence
-          </label>
+      <div className="card mb-4 flex flex-col gap-3">
+        <h2 className="card-title">Start sequence</h2>
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <select
+              id="start-sequence"
+              value={startSequence}
+              onChange={(e) => setStartSequence(e.target.value as StartSequence)}
+              className="select-field tabular-nums"
+            >
+              {START_SEQUENCE_OPTIONS.map((seq) => (
+                <option key={seq} value={seq}>
+                  {seq}
+                </option>
+              ))}
+            </select>
+            <span className="select-chevron" aria-hidden>
+              ▾
+            </span>
+          </div>
           <button
             type="button"
             onClick={() => {
               unlockAudio();
               playHorn();
             }}
-            className="flex h-7 items-center gap-1.5 rounded-md border border-imminent px-2.5 font-display text-[11px] font-semibold uppercase tracking-[0.14em] text-imminent active:bg-imminent active:text-ground"
+            className="btn-secondary h-11"
           >
             🔊 Test horn
           </button>
-        </div>
-        <div className="relative">
-          <select
-            id="start-sequence"
-            value={startSequence}
-            onChange={(e) => setStartSequence(e.target.value as StartSequence)}
-            className="h-11 w-full appearance-none rounded-lg bg-line px-3 pr-9 font-mono text-base font-bold tabular-nums text-ink"
-          >
-            {START_SEQUENCE_OPTIONS.map((seq) => (
-              <option key={seq} value={seq}>
-                {seq}
-              </option>
-            ))}
-          </select>
-          <span
-            className="pointer-events-none absolute inset-y-0 right-3 flex items-center font-mono text-sm text-muted"
-            aria-hidden
-          >
-            ▾
-          </span>
         </div>
       </div>
 
       {/* Fleet / start order — the hero. Tap to open the fullscreen picker. */}
       {schedule ? (
         <section className="overflow-hidden rounded-xl border border-line bg-panel">
-          <button
-            type="button"
-            onClick={() => setPicking(true)}
-            className="flex w-full items-center justify-between gap-3 border-b border-line px-3 py-3 text-left active:bg-line/40"
-          >
-            <h2 className="font-display text-lg font-semibold uppercase tracking-[0.22em] text-muted">
-              Start order
-            </h2>
-            <span className="flex items-center gap-2.5">
-              <span className="font-mono text-xs tabular-nums text-muted">
-                {count} {count === 1 ? "class" : "classes"}
-              </span>
-              <span className="rounded-md bg-signal px-2 py-1 font-display text-sm font-semibold uppercase tracking-wider text-ground">
+          <div className="flex w-full items-center justify-between border-b border-line p-4">
+            <h2 className="card-title">Start order</h2>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  exportSchedulePdf({
+                    schedule,
+                    duration:
+                      durationMode === "class"
+                        ? {
+                            mode: "class",
+                            totalMinutes: effectiveDuration,
+                            referenceName:
+                              selected.find((c) => c.id === referenceClassId)?.name ??
+                              "reference class",
+                            referenceMinutes,
+                          }
+                        : { mode: "fixed", totalMinutes: effectiveDuration },
+                    startSequence,
+                    pyMeta,
+                    generatedAt: Date.now(),
+                  })
+                }
+                className="btn-secondary"
+              >
+                Export PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => setPicking(true)}
+                className="btn-primary"
+              >
                 Edit fleet ›
-              </span>
-            </span>
-          </button>
-
-          <div className="px-3 py-2.5">
-            <ScheduleList schedule={schedule} animateIn />
+              </button>
+            </div>
           </div>
 
-          <p className="border-t border-line px-3 py-2 text-[11px] text-muted">
+          <div className="py-2.5">
+            <ScheduleList schedule={schedule} animateIn gutterClass="px-4" />
+          </div>
+
+          <p className="hint border-t border-line px-3 py-2.5">
             Slowest away first at <span className="font-mono text-ink">+0:00</span> — fastest
             chases, all converge at the finish
             {finishAt && (
@@ -237,10 +250,8 @@ export function SetupScreen() {
           <span className="flex h-12 w-12 items-center justify-center rounded-full border border-signal text-2xl leading-none text-signal">
             +
           </span>
-          <span className="mt-3 font-display text-lg font-semibold uppercase tracking-wider text-ink">
-            Build your fleet
-          </span>
-          <span className="mt-1.5 max-w-xs text-xs text-muted">
+          <span className="card-title mt-3">Build your fleet</span>
+          <span className="hint mt-1.5 max-w-xs text-center">
             {favourites.length > 0
               ? "Add your starred classes or search the full PY list."
               : "Search and tap classes to add them. Star ★ any to save as favourites."}

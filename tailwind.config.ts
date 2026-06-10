@@ -15,6 +15,8 @@ const config: Config = {
         panel: "var(--color-panel)", // raised surface
         "panel-2": "var(--color-panel-2)", // second-level raised surface (chips, sticky bars)
         line: "var(--color-line)", // hairlines / borders
+        "line-strong": "var(--color-line-strong)", // visible control outlines
+        zebra: "var(--color-zebra)", // alternating table row tint
         ink: "var(--color-ink)", // primary high-contrast text
         muted: "var(--color-muted)", // dim / upcoming-later
         // instrument status semantics
