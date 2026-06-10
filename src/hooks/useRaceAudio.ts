@@ -1,11 +1,12 @@
 import { useEffect, useRef } from "react";
 import { playCountBeep, playHorn } from "@/lib/audio";
+import { syncedCountInSec } from "@/lib/timer";
 
 /**
  * Drives the race's audible cues off the derived timer view.
  *
- * - `msToNextHorn`: a short pip on each of the final five whole seconds before
- *   any horn (sequence signal or boat start).
+ * - `msToNextHorn`: a short pip when the readout shows 5, 4, 3, 2, or 1 before
+ *   the next horn (sequence signal or boat start).
  * - `takeoverKey`: a long horn on the rising edge of each gun's takeover.
  *
  * Cues fire on threshold-crossings within the render tick (which already runs
@@ -19,11 +20,8 @@ export function useRaceAudio(
   takeoverKey: string | null,
   muted: boolean,
 ): void {
-  // 5..1 in the final five seconds, else null.
-  const countSec =
-    msToNextHorn !== null && msToNextHorn > 0 && msToNextHorn <= 5_000
-      ? Math.ceil(msToNextHorn / 1000)
-      : null;
+  // 5..1 on the same whole seconds the readout shows — not a raw ≤5000 ms window.
+  const countSec = msToNextHorn !== null ? syncedCountInSec(msToNextHorn) : null;
 
   const lastCountSec = useRef<number | null>(null);
   const lastHorn = useRef<string | null>(null);

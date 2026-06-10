@@ -11,7 +11,9 @@ import {
   FLASH_MS,
   rapidCluster,
   IMMINENT_MS,
+  displayZeroAtMsSince,
   snapRaceTimeline,
+  syncedCountInSec,
   syncedDisplayMsToFirstGun,
   syncedDisplayMsToStart,
 } from "./timer";
@@ -65,6 +67,21 @@ describe("phase detection", () => {
     expect(v.phase).toBe("race");
     expect(v.flashing?.classes[0]?.name).toBe("Mirror");
     expect(v.signalFlashMs).toBeNull();
+  });
+
+  it("10s sequence is a plain 10-second countdown with no warning signals", () => {
+    const c = armClock(GUN - 10_000, "10s", 0);
+    expect(c.warningMs).toBe(10_000);
+    expect(c.preRollMs).toBe(0);
+    expect(firstGunEpoch(c)).toBe(GUN);
+    const v = deriveTimer(c, schedule, GUN - 10_000);
+    expect(v.phase).toBe("warning");
+    expect(v.countdownMs).toBe(10_000);
+    expect(v.signalFlashMs).toBeNull();
+    expect(v.msToNextHorn).toBe(10_000);
+    const v2 = deriveTimer(c, schedule, GUN);
+    expect(v2.phase).toBe("race");
+    expect(v2.flashing?.classes[0]?.name).toBe("Mirror");
   });
 
   it("10-5-4-1 sequence is a 10-minute lead-in with 10/5/4/1 milestones", () => {
@@ -161,10 +178,13 @@ describe("horn anticipation + takeover", () => {
     expect(v.msToNextHorn).toBe(10_000);
   });
 
-  it("msToNextHorn targets the upcoming boat start during the race", () => {
+  it("msToNextHorn matches the snapped countdown to the next boat start", () => {
     const scratch = schedule.starts.find((s) => s.isScratch)!;
-    const v = deriveTimer(clock, schedule, GUN + scratch.startFromFirstGunMs - 8_000);
-    expect(v.msToNextHorn).toBeCloseTo(8_000, 5);
+    const msSince = scratch.startFromFirstGunMs - 8_000;
+    const v = deriveTimer(clock, schedule, GUN + msSince);
+    expect(v.msToNextHorn).toBe(
+      syncedDisplayMsToStart(scratch.startFromFirstGunMs, msSince),
+    );
   });
 
   it("counts the finish gun in as the next horn once all boats have started", () => {
@@ -183,6 +203,26 @@ describe("horn anticipation + takeover", () => {
     expect(settled.finishFlash).toBe(false);
     expect(settled.takeoverKey).toBeNull();
     expect(settled.msToNextHorn).toBeNull(); // nothing left to signal
+  });
+
+  it("fires takeover horns when the readout hits 0:00, not the raw schedule offset", () => {
+    const offsetStart = schedule.starts.find((s) => s.startFromFirstGunMs > 0)!;
+    const zeroAt = displayZeroAtMsSince(offsetStart.startFromFirstGunMs);
+    const before = deriveTimer(clock, schedule, GUN + zeroAt - 100);
+    const at = deriveTimer(clock, schedule, GUN + zeroAt);
+    expect(before.takeoverKey).toBeNull();
+    expect(at.takeoverKey).toBe(`boat:${offsetStart.order}`);
+    expect(zeroAt).toBeLessThan(offsetStart.startFromFirstGunMs);
+  });
+
+  it("count-in beeps follow the displayed second, not a raw ≤5s window", () => {
+    const offsetStart = schedule.starts.find((s) => s.startFromFirstGunMs > 0)!;
+    const marker = offsetStart.startFromFirstGunMs;
+    const msSince = marker - 5_400; // snapped readout 0:05 while 5400ms raw remain
+    const v = deriveTimer(clock, schedule, GUN + msSince);
+    expect(formatRaceStopwatch(syncedDisplayMsToStart(marker, msSince))).toBe("0:05");
+    expect(v.msToNextHorn).toBeGreaterThan(5_000);
+    expect(syncedCountInSec(v.msToNextHorn!)).toBe(5);
   });
 });
 
@@ -225,6 +265,15 @@ describe("rapid-start burst", () => {
     const v = deriveTimer(clock, burstSchedule, GUN + ALPHA + FLASH_MS);
     expect(v.burst!.pulse).toBe(false);
     expect(v.burst!.msToNext).toBe(BRAVO - ALPHA - FLASH_MS);
+  });
+
+  it("still exposes count-in timing to the next burst member after a GO", () => {
+    const msSince = BRAVO - 4_000;
+    const v = deriveTimer(clock, burstSchedule, GUN + msSince);
+    expect(v.burst).not.toBeNull();
+    expect(v.burst!.next?.order).toBe(3);
+    expect(v.msToNextHorn).toBe(syncedDisplayMsToStart(BRAVO, msSince));
+    expect(syncedCountInSec(v.msToNextHorn!)).toBe(4);
   });
 
   it("each member fires its own horn on its own second", () => {
@@ -351,4 +400,5 @@ describe("deriveStartCardState", () => {
     expect(before).toBe("0:06");
     expect(after).toBe("0:05");
   });
+
 });

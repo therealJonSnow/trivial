@@ -10,8 +10,6 @@ import {
   rapidCluster,
   syncedDisplayMsElapsed,
   syncedDisplayMsToFinish,
-  syncedDisplayMsToFirstGun,
-  syncedDisplayMsToFirstSignal,
 } from "@/lib/timer";
 import { formatRaceStopwatch } from "@/lib/format";
 import { unlockAudio } from "@/lib/audio";
@@ -21,16 +19,12 @@ import { useWakeLock } from "@/hooks/useWakeLock";
 import { useRaceAudio } from "@/hooks/useRaceAudio";
 import { useAudioKeepAlive } from "@/hooks/useAudioKeepAlive";
 import { HoldButton } from "./HoldButton";
+import { FinishTimerCard, deriveFinishCardMode } from "./FinishTimerCard";
+import { SequenceTimerCard, deriveSequenceCardMode } from "./SequenceTimerCard";
 import { StartCard, deriveStartCardState } from "./StartCard";
 import { StartConfirm } from "./StartConfirm";
 import type { ScheduledStart } from "@/lib/types";
 import type { TimerView } from "@/lib/timer";
-
-function milestoneLabel(ms: number | null): string | null {
-  if (ms === null || ms <= 0) return null;
-  const minutes = Math.round(ms / 60_000);
-  return `${minutes} MINUTE${minutes === 1 ? "" : "S"}`;
-}
 
 function SpeakerIcon({ muted }: { muted: boolean }) {
   return (
@@ -82,13 +76,16 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
     awaitingStart,
     toggleMuted,
     start,
-    pause,
-    resume,
     reset,
     stop,
   } = useRace();
 
   const [confirming, setConfirming] = useState(false);
+
+  const handleReset = () => {
+    reset();
+    setConfirming(true);
+  };
   // Top fade on the fleet queue — only once it's actually scrolled off its top,
   // so the base (unscrolled) state stays clean.
   const [queueScrolled, setQueueScrolled] = useState(false);
@@ -121,14 +118,7 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
 
   // Only sound cues while actively counting; pausing/awaiting freezes them.
   const live = view !== null && !paused;
-  // Inside a burst the horns are seconds apart, so the −5..−1 count-in beeps
-  // would smear across them — suppress the beeps there (the on-screen countdown
-  // carries the anticipation); the per-member horns still fire via takeoverKey.
-  useRaceAudio(
-    live && view!.burst === null ? view!.msToNextHorn : null,
-    live ? view!.takeoverKey : null,
-    muted,
-  );
+  useRaceAudio(live ? view!.msToNextHorn : null, live ? view!.takeoverKey : null, muted);
 
   const scrollTargetOrder =
     view?.burst?.pulse && view.burst.next
@@ -139,9 +129,11 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
 
   useEffect(() => {
     if (view?.phase !== "race" || scrollTargetOrder === undefined) return;
-    const el = cardScrollRef.current?.querySelector(
-      `[data-start-order="${scrollTargetOrder}"]`,
-    );
+    const container = cardScrollRef.current;
+    if (!container) return;
+    const el =
+      container.querySelector(`[data-start-order="${scrollTargetOrder}"]`) ??
+      container.querySelector("[data-sequence-timer]");
     el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [view?.phase, scrollTargetOrder, view?.startedOrders.length]);
 
@@ -150,21 +142,27 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
   const gun = firstGunEpoch(clock);
   const msSinceFirstGun = view.msSinceFirstGun;
   const isFinishFlash = view.finishFlash;
-  const isSignal = !isFinishFlash && view.signalFlashMs !== null;
-  const isFullBleed = isSignal || isFinishFlash;
   const isPreroll = view.phase === "preroll";
   const isWarning = view.phase === "warning";
   const isRace = view.phase === "race";
   const isFinished = view.phase === "finished";
   const isImminent =
-    !isFullBleed &&
     !isFinished &&
     view.msToNextHorn !== null &&
     view.msToNextHorn <= IMMINENT_MS;
 
-  const primaryColour = isImminent ? "text-imminent" : isWarning ? "text-ink" : "text-next";
-  const strobe = isImminent && !paused ? "motion-safe:animate-strobe" : "";
-  const showCardList = (isRace || isPreroll || isWarning) && schedule.starts.length > 0;
+  const firstStart = schedule.starts[0] ?? null;
+  const sequenceMode = deriveSequenceCardMode(view, firstStart, msSinceFirstGun);
+  const fleetStarts =
+    sequenceMode !== null && firstStart
+      ? schedule.starts.filter((s) => s.order !== firstStart.order)
+      : schedule.starts;
+  const allAway = view.nextStart === null && (isRace || isFinished);
+  const finishMode = deriveFinishCardMode(view.phase, allAway, isFinishFlash);
+  const showCardList =
+    (isRace || isPreroll || isWarning) && fleetStarts.length > 0 && !allAway && !isFinished;
+  const showScrollList = showCardList || sequenceMode !== null;
+  const showFinishTimer = finishMode !== null;
 
   const handleCardScroll = () => {
     const el = cardScrollRef.current;
@@ -174,20 +172,14 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
   };
 
   return (
-    <div
-      className={`mx-auto flex h-dvh max-h-dvh max-w-md flex-col overflow-hidden px-4 py-3 transition-colors duration-150 ${
-        isFullBleed ? "bg-imminent" : "bg-ground"
-      }`}
-    >
+    <div className="mx-auto flex h-dvh max-h-dvh max-w-md flex-col overflow-hidden bg-ground px-4 py-3">
       {/* master race clock + fleet entry + mute */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
             onClick={onOpenFleet}
-            className={`flex h-9 items-center rounded-lg border px-3 font-mono text-xs font-bold uppercase tracking-wider ${
-              isFullBleed ? "border-ground/40 text-ground/80" : "border-signal text-signal"
-            }`}
+            className="flex h-9 items-center rounded-lg border border-signal px-3 font-mono text-xs font-bold uppercase tracking-wider text-signal"
           >
             + Class
           </button>
@@ -197,20 +189,14 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
             aria-label={muted ? "Unmute alerts" : "Mute alerts"}
             aria-pressed={muted}
             className={`flex h-9 w-9 items-center justify-center rounded-lg border ${
-              isFullBleed
-                ? "border-ground/40 text-ground/80"
-                : muted
-                  ? "border-imminent/60 text-imminent/60"
-                  : "border-imminent text-imminent"
+              muted ? "border-imminent/60 text-imminent/60" : "border-imminent text-imminent"
             }`}
           >
             <SpeakerIcon muted={muted} />
           </button>
         </div>
         <span
-          className={`min-w-0 truncate text-center font-mono text-xs uppercase tracking-wider ${
-            isFullBleed ? "text-ground/70" : "text-muted"
-          }`}
+          className="min-w-0 truncate text-center font-mono text-xs uppercase tracking-wider text-muted"
         >
           {awaitingStart
             ? "Ready"
@@ -220,15 +206,21 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
                 ? "Get ready"
                 : isWarning
                   ? `${clock.sequence} sequence`
-                  : isFinished
-                    ? "Finished"
-                    : "Racing"}
+                  : isFinishFlash
+                    ? "Finish"
+                    : isFinished
+                      ? "Finished"
+                      : allAway
+                        ? "All away"
+                        : "Racing"}
           {view.phase === "race" &&
             ` · ${formatRaceStopwatch(syncedDisplayMsElapsed(msSinceFirstGun))}`}
         </span>
         <span
           className={`shrink-0 font-mono text-xs uppercase tracking-wider ${
-            isFullBleed ? "text-ground/70" : "text-muted"
+            isFinishFlash || isFinished || (allAway && isImminent)
+              ? "text-imminent"
+              : "text-muted"
           }`}
         >
           fin{" "}
@@ -238,104 +230,57 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
         </span>
       </div>
 
-      {/* primary display — hero timers + full-height scrolling start cards */}
+      {/* primary display — scrolling start cards (sequence timer first, then fleet) */}
       <div
         className={`flex min-h-0 flex-1 flex-col overflow-hidden ${
-          isRace ? "pt-3" : showCardList ? "gap-3 pt-2" : "items-center justify-center text-center"
+          showScrollList || showFinishTimer ? "pt-3" : "items-center justify-center text-center"
         }`}
       >
-        {(isSignal || isFinishFlash || (isFinished && !isFinishFlash)) && (
-          <div className="flex flex-1 flex-col items-center justify-center text-center">
-            {isSignal ? (
-              <>
-                <div className="text-sm font-bold uppercase tracking-[0.4em] text-ground/70">
-                  Signal
-                </div>
-                <div className="mt-1 font-mono text-clock font-black leading-none tabular-nums text-ground">
-                  {formatRaceStopwatch(view.signalFlashMs!)}
-                </div>
-                <div className="mt-1 text-sm font-semibold uppercase tracking-[0.3em] text-ground/70">
-                  Sound the horn
-                </div>
-              </>
-            ) : isFinishFlash ? (
-              <>
-                <div className="font-mono text-clock font-black leading-none text-ground">
-                  FINISH
-                </div>
-                <div className="mt-2 text-2xl font-bold text-ground">Race complete</div>
-                <div className="mt-1 text-sm font-semibold uppercase tracking-[0.3em] text-ground/70">
-                  Sound the horn
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="font-mono text-clock-sm font-black text-started">FINISH</div>
-                <div className="mt-2 text-sm uppercase tracking-widest text-muted">
-                  Race complete
-                </div>
-              </>
-            )}
+        {showFinishTimer && finishMode && (
+          <div className="relative min-h-0 flex-1 overflow-hidden">
+            <div className="flex h-full flex-col justify-center py-1">
+              <FinishTimerCard
+                mode={finishMode}
+                msSinceFirstGun={msSinceFirstGun}
+                finishFromFirstGunMs={schedule.finishFromFirstGunMs}
+                imminent={isImminent}
+                paused={paused}
+              />
+            </div>
           </div>
         )}
 
-        {isPreroll ? (
-          <div className="shrink-0 text-center">
-            <div className="mb-3 text-sm font-bold uppercase tracking-[0.4em] text-imminent">
-              Get ready
-            </div>
-            <div
-              className={`font-mono text-clock font-black leading-none tabular-nums text-imminent ${strobe}`}
-            >
-              {formatRaceStopwatch(
-                syncedDisplayMsToFirstSignal(msSinceFirstGun, clock.warningMs),
-              )}
-            </div>
-            <div className="mt-2 max-w-full truncate px-2 text-xl">
-              <span className="uppercase tracking-widest text-muted">to first signal</span>
-              {schedule.starts[0] && (
-                <>
-                  <span className="text-muted"> · </span>
-                  <span className="text-ink">
-                    {schedule.starts[0].classes.map((c) => c.name).join(" + ")}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-        ) : isWarning ? (
-          <div className="shrink-0 text-center">
-            {milestoneLabel(view.activeMilestoneMs) && (
-              <div className="mb-3 animate-pulse rounded-full border-2 border-imminent px-4 py-1 text-base font-bold uppercase tracking-[0.2em] text-imminent">
-                {milestoneLabel(view.activeMilestoneMs)} flag raised
-              </div>
-            )}
-            <div
-              className={`font-mono text-clock font-black leading-none tabular-nums ${primaryColour} ${strobe} ${
-                paused ? "opacity-40" : ""
-              }`}
-            >
-              {formatRaceStopwatch(syncedDisplayMsToFirstGun(msSinceFirstGun))}
-            </div>
-            <div className="mt-2 max-w-full truncate px-2 text-xl uppercase tracking-widest text-muted">
-              to first gun
-            </div>
-          </div>
-        ) : null}
-
-        {showCardList && (
+        {showScrollList && (
           <div className="relative min-h-0 flex-1 overflow-hidden">
             <div
               ref={cardScrollRef}
               className="flex h-full flex-col gap-2 overflow-y-auto overscroll-contain py-1 pr-0.5"
               onScroll={handleCardScroll}
             >
-              {schedule.starts.map((s) => {
+              {sequenceMode !== null && (
+                <div data-sequence-timer>
+                  <SequenceTimerCard
+                    mode={sequenceMode}
+                    sequence={clock.sequence}
+                    msSinceFirstGun={msSinceFirstGun}
+                    warningMs={clock.warningMs}
+                    sequenceLabel={`${clock.sequence} sequence`}
+                    activeMilestoneMs={view.activeMilestoneMs}
+                    signalFlashMs={view.signalFlashMs}
+                    firstStart={firstStart}
+                    imminent={isImminent}
+                    paused={paused}
+                  />
+                </div>
+              )}
+              {fleetStarts.map((s) => {
                 const inFocus =
-                  isInActiveCluster(s, view, schedule.starts) ||
-                  view.nextStart?.order === s.order;
+                  isRace &&
+                  (isInActiveCluster(s, view, schedule.starts) ||
+                    view.nextStart?.order === s.order);
                 const state = deriveStartCardState(s, view, msSinceFirstGun, inFocus);
                 const large =
+                  isRace &&
                   state.kind !== "away" &&
                   (state.kind === "go" || inFocus || state.kind === "countdown");
                 return (
@@ -394,22 +339,12 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
           >
             New race
           </button>
-        ) : (
-          <button
-            type="button"
-            onClick={paused ? resume : pause}
-            className={`h-16 w-full rounded-2xl text-xl font-bold uppercase tracking-wider ${
-              paused ? "bg-started text-ground" : "border border-line bg-panel text-ink"
-            }`}
-          >
-            {paused ? "Resume" : "Pause"}
-          </button>
-        )}
+        ) : null}
         {isFinished ? (
-          <HoldButton label="Rerun same fleet" onComplete={reset} className="w-full" />
+          <HoldButton label="Rerun same fleet" onComplete={handleReset} className="w-full" />
         ) : (
           <div className="grid grid-cols-2 gap-2">
-            <HoldButton label="Reset" onComplete={reset} />
+            <HoldButton label="Reset" onComplete={handleReset} />
             <HoldButton label="Stop" onComplete={stop} />
           </div>
         )}

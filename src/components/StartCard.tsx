@@ -1,7 +1,7 @@
 "use client";
 
 import type { ScheduledStart } from "@/lib/types";
-import { IMMINENT_MS, msToStart, syncedDisplayMsToStart } from "@/lib/timer";
+import { IMMINENT_MS, syncedDisplayMsToStart } from "@/lib/timer";
 import { formatClock, formatRaceStopwatch, ordinal } from "@/lib/format";
 import { startTime } from "@/lib/schedule";
 
@@ -36,7 +36,7 @@ export function deriveStartCardState(
     return { kind: "away" };
   }
 
-  const ms = msToStart(start.startFromFirstGunMs, msSinceFirstGun);
+  const ms = syncedDisplayMsToStart(start.startFromFirstGunMs, msSinceFirstGun);
   if (ms > 0) {
     const imminent = ms <= IMMINENT_MS;
     if (inFocus || imminent) {
@@ -131,6 +131,9 @@ export function StartCard({
               )}
             >
               {statusLabel}
+              {!isGo && !isAway && (
+                <span className="ml-2 tabular-nums">{ordinal(start.order)}</span>
+              )}
             </p>
             <h3
               className={classNames(

@@ -56,14 +56,16 @@ export const PRE_ROLL_MS = 10_000;
  *   "10-5-4-1": signals at 10:00 / 5:00 / 4:00 / 1:00 / GO
  *   "5-4-1":    signals at 5:00 / 4:00 / 1:00 / GO
  *   "3-2-1":    signals at 3:00 / 2:00 / 1:00 / GO
+ *   "10s":      plain 10-second countdown to GO (quick dress rehearsal)
  *   "GO":       no signals — first gun fires immediately (testing shortcut).
  */
-export type StartSequence = "10-5-4-1" | "5-4-1" | "3-2-1" | "GO";
+export type StartSequence = "10-5-4-1" | "5-4-1" | "3-2-1" | "10s" | "GO";
 
 export const START_SEQUENCE_OPTIONS: readonly StartSequence[] = [
   "10-5-4-1",
   "5-4-1",
   "3-2-1",
+  "10s",
   "GO",
 ];
 
@@ -77,12 +79,30 @@ export const SEQUENCES: Record<
   },
   "5-4-1": { warningMs: 5 * 60_000, milestonesMs: [5 * 60_000, 4 * 60_000, 60_000, 0] },
   "3-2-1": { warningMs: 3 * 60_000, milestonesMs: [3 * 60_000, 2 * 60_000, 60_000, 0] },
+  "10s": { warningMs: 10_000, milestonesMs: [0] },
   GO: { warningMs: 0, milestonesMs: [0] },
 };
 
 /** Count-in before the first signal; zero for the instant GO test sequence. */
 export function preRollForSequence(sequence: StartSequence): number {
-  return sequence === "GO" ? 0 : PRE_ROLL_MS;
+  return sequence === "GO" || sequence === "10s" ? 0 : PRE_ROLL_MS;
+}
+
+/** The first sequence flag signal before the gun (e.g. 5:00 on a 5-4-1). */
+export function firstSequenceSignalMs(sequence: StartSequence): number | null {
+  const signals = SEQUENCES[sequence].milestonesMs.filter((m) => m > 0);
+  if (signals.length === 0) return null;
+  return Math.max(...signals);
+}
+
+/** Human label for a sequence flag milestone, e.g. "5 minute" or "1 minute". */
+export function flagSignalLabel(ms: number): string {
+  const totalSec = Math.round(ms / 1000);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  if (min > 0 && sec === 0) return `${min} minute`;
+  if (min > 0) return `${min}:${String(sec).padStart(2, "0")}`;
+  return `${sec} second`;
 }
 
 export type Phase = "preroll" | "warning" | "race" | "finished";
@@ -244,6 +264,38 @@ export function syncedDisplayMsToFinish(
   return syncedDisplayMsToMarker(finishFromFirstGunMs, msSinceFirstGun);
 }
 
+/** Whole seconds on the shared readout for a marker — matches `formatRaceStopwatch`. */
+export function syncedCountdownSecsToMarker(
+  markerMsSinceFirstGun: number,
+  msSinceFirstGun: number,
+): number {
+  return Math.max(0, Math.round(syncedDisplayMsToMarker(markerMsSinceFirstGun, msSinceFirstGun) / 1000));
+}
+
+/**
+ * Race-timeline instant when the synced readout first flips to 0:00 for a marker.
+ * Horns and GO takeovers align to this, not the raw sub-second schedule offset.
+ */
+export function displayZeroAtMsSince(markerMsSinceFirstGun: number): number {
+  return Math.ceil((markerMsSinceFirstGun - 499) / 1000) * 1000;
+}
+
+/** True during the brief full-screen takeover after a marker's readout hits 0:00. */
+export function inDisplayTakeoverWindow(
+  markerMsSinceFirstGun: number,
+  msSinceFirstGun: number,
+  holdMs: number,
+): boolean {
+  const zeroAt = displayZeroAtMsSince(markerMsSinceFirstGun);
+  return msSinceFirstGun >= zeroAt && msSinceFirstGun < zeroAt + holdMs;
+}
+
+/** Count-in second (5..1) from snapped ms-to-horn, or null outside the final five display seconds. */
+export function syncedCountInSec(msToNextHorn: number): number | null {
+  const displaySecs = Math.round(msToNextHorn / 1000);
+  return displaySecs >= 1 && displaySecs <= 5 ? displaySecs : null;
+}
+
 /** Primary countdown for the current phase — one stopwatch, one readout. */
 export function syncedHeroCountdownMs(
   view: Pick<TimerView, "phase" | "msSinceFirstGun" | "nextStart">,
@@ -292,13 +344,15 @@ function findActiveBurst(
       const members = starts.slice(i, j + 1);
       const first = members[0]!.startFromFirstGunMs;
       const last = members[members.length - 1]!.startFromFirstGunMs;
-      if (msSinceFirstGun >= first && msSinceFirstGun < last + GO_HOLD_MS) {
+      const clusterStart = displayZeroAtMsSince(first);
+      const clusterEnd = displayZeroAtMsSince(last) + GO_HOLD_MS;
+      if (msSinceFirstGun >= clusterStart && msSinceFirstGun < clusterEnd) {
         let justFired = members[0]!;
         let next: ScheduledStart | null = null;
         let afterNext: ScheduledStart | null = null;
         for (let k = 0; k < members.length; k++) {
           const m = members[k]!;
-          if (m.startFromFirstGunMs <= msSinceFirstGun) {
+          if (msSinceFirstGun >= displayZeroAtMsSince(m.startFromFirstGunMs)) {
             justFired = m;
           } else {
             next = m;
@@ -337,13 +391,16 @@ export function deriveTimer(
   const gun = firstGunEpoch(clock);
   const ref = raceRefNow(clock, now);
   const msSinceFirstGun = ref - gun;
+  /** Snapped race position — shared ms remaining for readouts and count-in timing. */
+  const snap = snapRaceTimeline(msSinceFirstGun);
   const paused = clock.pausedAtEpoch !== null;
 
   const startedOrders: number[] = [];
   let nextStart: ScheduledStart | null = null;
   for (const s of schedule.starts) {
-    if (msSinceFirstGun >= s.startFromFirstGunMs) startedOrders.push(s.order);
-    else if (nextStart === null) nextStart = s;
+    if (msSinceFirstGun >= displayZeroAtMsSince(s.startFromFirstGunMs)) {
+      startedOrders.push(s.order);
+    } else if (nextStart === null) nextStart = s;
   }
 
   // Sequence signals sound at -m before the first gun (the 0-ms milestone IS the
@@ -380,14 +437,15 @@ export function deriveTimer(
   if (phase === "race" || phase === "finished") {
     for (let i = schedule.starts.length - 1; i >= 0; i--) {
       const s = schedule.starts[i]!;
-      const sinceFire = msSinceFirstGun - s.startFromFirstGunMs;
-      if (sinceFire >= 0 && sinceFire < GO_HOLD_MS) {
-        const toNext = nextStart
-          ? nextStart.startFromFirstGunMs - msSinceFirstGun
-          : Infinity;
-        if (sinceFire < toNext) flashing = s;
-        break;
+      if (!inDisplayTakeoverWindow(s.startFromFirstGunMs, msSinceFirstGun, GO_HOLD_MS)) {
+        continue;
       }
+      const toNext = nextStart
+        ? displayZeroAtMsSince(nextStart.startFromFirstGunMs) - msSinceFirstGun
+        : Infinity;
+      const sinceDisplayGo = msSinceFirstGun - displayZeroAtMsSince(s.startFromFirstGunMs);
+      if (sinceDisplayGo < toNext) flashing = s;
+      break;
     }
   }
 
@@ -407,8 +465,7 @@ export function deriveTimer(
   let signalFlashMs: number | null = null;
   if (phase === "warning") {
     for (const m of signalsMs) {
-      const sinceFire = msSinceFirstGun + m;
-      if (sinceFire >= 0 && sinceFire < SIGNAL_HOLD_MS) signalFlashMs = m;
+      if (inDisplayTakeoverWindow(-m, msSinceFirstGun, SIGNAL_HOLD_MS)) signalFlashMs = m;
     }
   }
 
@@ -417,13 +474,13 @@ export function deriveTimer(
   // over a boat GO that started within the last GO_HOLD before the finish.
   const finishFlash =
     phase === "finished" &&
-    msSinceFirstGun - schedule.finishFromFirstGunMs < GO_HOLD_MS;
+    inDisplayTakeoverWindow(schedule.finishFromFirstGunMs, msSinceFirstGun, GO_HOLD_MS);
 
   // Next horn of any kind: nearest upcoming sequence signal (−m), boat start, or
-  // the finish gun. Drives the anticipation strobe + count-in beeps for all three.
+  // the finish gun. Snapped so count-in beeps land on the same second the UI shows.
   let msToNextHorn: number | null = null;
   const consider = (offset: number) => {
-    const dt = offset - msSinceFirstGun;
+    const dt = offset - snap;
     if (dt > 0 && (msToNextHorn === null || dt < msToNextHorn)) msToNextHorn = dt;
   };
   for (const m of signalsMs) consider(-m);
