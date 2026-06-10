@@ -4,9 +4,9 @@ import {
   armClock,
   pauseClock,
   resumeClock,
-  PRE_ROLL_MS,
   type RaceClock,
   type StartSequence,
+  preRollForSequence,
 } from "@/lib/timer";
 import { buildSchedule, frameFromSchedule, deriveDurationMinutes } from "@/lib/schedule";
 import { resolveClasses, DEFAULT_REFERENCE_CLASS_ID } from "@/lib/data";
@@ -198,7 +198,7 @@ export const useRace = create<RaceState>()(
         if (!base) return;
         set({
           frame: frameFromSchedule(base),
-          clock: armClock(Date.now(), s.startSequence, PRE_ROLL_MS),
+          clock: armClock(Date.now(), s.startSequence, preRollForSequence(s.startSequence)),
           awaitingStart: false,
         });
       },

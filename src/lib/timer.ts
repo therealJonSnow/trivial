@@ -3,6 +3,44 @@ import type { Schedule, ScheduledStart } from "./types";
 /** How long a boat-start GO flash holds before retargeting (unless the next gun is sooner). */
 export const GO_HOLD_MS = 5_000;
 
+/**
+ * Adjacent starts whose gap is ≤ this are treated as a "burst" — one continuous
+ * takeover that flashes a momentary GO per horn with a live countdown between,
+ * rather than independent GO holds that would smear into each other. Sized to
+ * cover the zone where a single GO's hold + count-in would overlap the next gun.
+ */
+export const RAPID_WINDOW_MS = 12_000;
+
+/**
+ * Maximal run of consecutive starts whose every adjacent gap is ≤ RAPID_WINDOW_MS,
+ * anchored on `start`. Used to keep near-coincident boats on screen together.
+ */
+export function rapidCluster(
+  starts: readonly ScheduledStart[],
+  anchor: ScheduledStart,
+): ScheduledStart[] {
+  const idx = starts.findIndex((s) => s.order === anchor.order);
+  if (idx === -1) return [anchor];
+  let i = idx;
+  while (
+    i > 0 &&
+    starts[i]!.startFromFirstGunMs - starts[i - 1]!.startFromFirstGunMs <= RAPID_WINDOW_MS
+  ) {
+    i--;
+  }
+  let j = idx;
+  while (
+    j + 1 < starts.length &&
+    starts[j + 1]!.startFromFirstGunMs - starts[j]!.startFromFirstGunMs <= RAPID_WINDOW_MS
+  ) {
+    j++;
+  }
+  return starts.slice(i, j + 1);
+}
+
+/** Momentary GO flash length per horn inside a burst (clamped under tight gaps). */
+export const FLASH_MS = 900;
+
 /** How long a sequence-signal (5/4/1) takeover holds before resuming the countdown. */
 export const SIGNAL_HOLD_MS = 3_000;
 
@@ -18,13 +56,15 @@ export const PRE_ROLL_MS = 10_000;
  *   "10-5-4-1": signals at 10:00 / 5:00 / 4:00 / 1:00 / GO
  *   "5-4-1":    signals at 5:00 / 4:00 / 1:00 / GO
  *   "3-2-1":    signals at 3:00 / 2:00 / 1:00 / GO
+ *   "GO":       no signals — first gun fires immediately (testing shortcut).
  */
-export type StartSequence = "10-5-4-1" | "5-4-1" | "3-2-1";
+export type StartSequence = "10-5-4-1" | "5-4-1" | "3-2-1" | "GO";
 
 export const START_SEQUENCE_OPTIONS: readonly StartSequence[] = [
   "10-5-4-1",
   "5-4-1",
   "3-2-1",
+  "GO",
 ];
 
 export const SEQUENCES: Record<
@@ -37,9 +77,36 @@ export const SEQUENCES: Record<
   },
   "5-4-1": { warningMs: 5 * 60_000, milestonesMs: [5 * 60_000, 4 * 60_000, 60_000, 0] },
   "3-2-1": { warningMs: 3 * 60_000, milestonesMs: [3 * 60_000, 2 * 60_000, 60_000, 0] },
+  GO: { warningMs: 0, milestonesMs: [0] },
 };
 
+/** Count-in before the first signal; zero for the instant GO test sequence. */
+export function preRollForSequence(sequence: StartSequence): number {
+  return sequence === "GO" ? 0 : PRE_ROLL_MS;
+}
+
 export type Phase = "preroll" | "warning" | "race" | "finished";
+
+/**
+ * A rapid-start cluster currently taking over the display. Present only while a
+ * run of ≥2 near-coincident starts is firing; the whole cluster reads as one
+ * event — a momentary GO flash at each member's instant, a countdown to the next
+ * between flashes — so every class still gets its own horn at its own second.
+ */
+export interface BurstView {
+  /** All starts in the cluster, in fire order (length ≥ 2). */
+  members: ScheduledStart[];
+  /** The most recently fired member — sound this horn now / show it on the flash. */
+  justFired: ScheduledStart;
+  /** True within the momentary flash window after `justFired`'s instant. */
+  pulse: boolean;
+  /** The next member still to fire, or null once the last has fired. */
+  next: ScheduledStart | null;
+  /** ms until `next` fires, or null when none remain. */
+  msToNext: number | null;
+  /** The member after `next`, for the "then ·" preview, or null. */
+  afterNext: ScheduledStart | null;
+}
 
 /**
  * Wall-clock anchors for a running race. Every derived value is computed from
@@ -70,8 +137,10 @@ export interface TimerView {
   countdownMs: number;
   /** During warning, the milestone just reached (ms value) or null. */
   activeMilestoneMs: number | null;
-  /** A boat start currently in its GO flash window, or null. */
+  /** A boat start currently in its GO flash window, or null. Null during a burst. */
   flashing: ScheduledStart | null;
+  /** The active rapid-start cluster, or null when starts are firing independently. */
+  burst: BurstView | null;
   /** A sequence signal (5/4/1, in ms) currently in its takeover window, or null. */
   signalFlashMs: number | null;
   /** True while the finish gun is in its takeover window (fires once at time expiry). */
@@ -101,8 +170,162 @@ export function firstGunEpoch(clock: RaceClock): number {
 }
 
 /** The reference "now" used for arithmetic — frozen at the pause instant when paused. */
-function refNow(clock: RaceClock, now: number): number {
+export function raceRefNow(clock: RaceClock, now: number): number {
   return clock.pausedAtEpoch ?? now;
+}
+
+/** Wall-clock instant at which a scheduled start's horn fires. */
+export function hornEpochForStart(clock: RaceClock, start: ScheduledStart): number {
+  return firstGunEpoch(clock) + start.startFromFirstGunMs;
+}
+
+/** ms until a horn from the shared race clock — all cards derive from the same refNow. */
+export function msToHorn(hornEpochMs: number, refNowMs: number): number {
+  return Math.max(0, hornEpochMs - refNowMs);
+}
+
+/** ms until a start from the race timeline (live — for horns, imminent, audio). */
+export function msToStart(startFromFirstGunMs: number, msSinceFirstGun: number): number {
+  return Math.max(0, startFromFirstGunMs - msSinceFirstGun);
+}
+
+/**
+ * Snap the stopwatch position to the shared whole-second grid. Works before the
+ * gun (negative) and during the race so every readout ticks in lockstep.
+ */
+export function snapRaceTimeline(msSinceFirstGun: number): number {
+  return Math.floor(msSinceFirstGun / 1000) * 1000;
+}
+
+/** Live ms until a marker on the race timeline (horns, signals, finish). */
+export function msToMarker(markerMsSinceFirstGun: number, msSinceFirstGun: number): number {
+  return Math.max(0, markerMsSinceFirstGun - msSinceFirstGun);
+}
+
+/** Snapped remaining ms to a timeline marker — pair with `formatRaceStopwatch`. */
+export function syncedDisplayMsToMarker(
+  markerMsSinceFirstGun: number,
+  msSinceFirstGun: number,
+): number {
+  return msToMarker(markerMsSinceFirstGun, snapRaceTimeline(msSinceFirstGun));
+}
+
+/** Elapsed time on the stopwatch (clamped at zero before the gun). */
+export function syncedDisplayMsElapsed(msSinceFirstGun: number): number {
+  return Math.max(0, snapRaceTimeline(msSinceFirstGun));
+}
+
+/** Countdown to the first gun — the warning-phase hero readout. */
+export function syncedDisplayMsToFirstGun(msSinceFirstGun: number): number {
+  return syncedDisplayMsToMarker(0, msSinceFirstGun);
+}
+
+/** Countdown to the first sequence signal — the pre-roll hero readout. */
+export function syncedDisplayMsToFirstSignal(
+  msSinceFirstGun: number,
+  warningMs: number,
+): number {
+  return syncedDisplayMsToMarker(-warningMs, msSinceFirstGun);
+}
+
+/** Countdown to a class start horn. */
+export function syncedDisplayMsToStart(
+  startFromFirstGunMs: number,
+  msSinceFirstGun: number,
+): number {
+  return syncedDisplayMsToMarker(startFromFirstGunMs, msSinceFirstGun);
+}
+
+/** Countdown to the finish gun. */
+export function syncedDisplayMsToFinish(
+  finishFromFirstGunMs: number,
+  msSinceFirstGun: number,
+): number {
+  return syncedDisplayMsToMarker(finishFromFirstGunMs, msSinceFirstGun);
+}
+
+/** Primary countdown for the current phase — one stopwatch, one readout. */
+export function syncedHeroCountdownMs(
+  view: Pick<TimerView, "phase" | "msSinceFirstGun" | "nextStart">,
+  clock: RaceClock,
+  finishFromFirstGunMs: number,
+): number {
+  switch (view.phase) {
+    case "preroll":
+      return syncedDisplayMsToFirstSignal(view.msSinceFirstGun, clock.warningMs);
+    case "warning":
+      return syncedDisplayMsToFirstGun(view.msSinceFirstGun);
+    case "race":
+      return view.nextStart
+        ? syncedDisplayMsToStart(view.nextStart.startFromFirstGunMs, view.msSinceFirstGun)
+        : syncedDisplayMsToFinish(finishFromFirstGunMs, view.msSinceFirstGun);
+    case "finished":
+      return syncedDisplayMsToFinish(finishFromFirstGunMs, view.msSinceFirstGun);
+  }
+}
+
+/**
+ * Find the rapid-start cluster active at `msSinceFirstGun`, if any.
+ *
+ * A cluster is a maximal run of consecutive starts whose every adjacent gap is
+ * ≤ RAPID_WINDOW_MS; only runs of two or more qualify (a lone start uses the
+ * ordinary single-GO takeover). The cluster is "active" from its first member's
+ * instant until GO_HOLD_MS past its last — the same tail a single GO holds — so
+ * the closing flash and "all away" beat have room before the queue resumes.
+ */
+function findActiveBurst(
+  starts: ScheduledStart[],
+  msSinceFirstGun: number,
+): BurstView | null {
+  let i = 0;
+  while (i < starts.length) {
+    // Extend the run while each successive gap stays within the rapid window.
+    let j = i;
+    while (
+      j + 1 < starts.length &&
+      starts[j + 1]!.startFromFirstGunMs - starts[j]!.startFromFirstGunMs <=
+        RAPID_WINDOW_MS
+    ) {
+      j++;
+    }
+    if (j > i) {
+      const members = starts.slice(i, j + 1);
+      const first = members[0]!.startFromFirstGunMs;
+      const last = members[members.length - 1]!.startFromFirstGunMs;
+      if (msSinceFirstGun >= first && msSinceFirstGun < last + GO_HOLD_MS) {
+        let justFired = members[0]!;
+        let next: ScheduledStart | null = null;
+        let afterNext: ScheduledStart | null = null;
+        for (let k = 0; k < members.length; k++) {
+          const m = members[k]!;
+          if (m.startFromFirstGunMs <= msSinceFirstGun) {
+            justFired = m;
+          } else {
+            next = m;
+            afterNext = members[k + 1] ?? null;
+            break;
+          }
+        }
+        // Don't let the flash eat the whole gap before the next horn — always
+        // leave at least half the gap for the countdown (full FLASH_MS on the
+        // last member, which has no successor).
+        const gap = next
+          ? next.startFromFirstGunMs - justFired.startFromFirstGunMs
+          : Infinity;
+        const flashMs = Math.min(FLASH_MS, gap * 0.5);
+        return {
+          members,
+          justFired,
+          pulse: msSinceFirstGun - justFired.startFromFirstGunMs < flashMs,
+          next,
+          msToNext: next ? next.startFromFirstGunMs - msSinceFirstGun : null,
+          afterNext,
+        };
+      }
+    }
+    i = j + 1;
+  }
+  return null;
 }
 
 /** Derive the full timer view from the clock, schedule, and current time. */
@@ -112,7 +335,7 @@ export function deriveTimer(
   now: number,
 ): TimerView {
   const gun = firstGunEpoch(clock);
-  const ref = refNow(clock, now);
+  const ref = raceRefNow(clock, now);
   const msSinceFirstGun = ref - gun;
   const paused = clock.pausedAtEpoch !== null;
 
@@ -168,6 +391,17 @@ export function deriveTimer(
     }
   }
 
+  // Rapid-cluster "burst" takeover: when consecutive starts fall within
+  // RAPID_WINDOW of each other, the single-GO hold of one would smear into the
+  // next instant. Instead the whole cluster is one continuous takeover — a
+  // momentary flash per horn, a countdown between — and the per-member flash
+  // replaces the single `flashing` GO so they never double-render.
+  const burst =
+    phase === "race" || phase === "finished"
+      ? findActiveBurst(schedule.starts, msSinceFirstGun)
+      : null;
+  if (burst) flashing = null;
+
   // Sequence-signal takeover: a 5/4/1 signal fired within SIGNAL_HOLD (warning only;
   // signals are ≥ 60s apart so holds never collide).
   let signalFlashMs: number | null = null;
@@ -196,13 +430,17 @@ export function deriveTimer(
   for (const s of schedule.starts) consider(s.startFromFirstGunMs);
   consider(schedule.finishFromFirstGunMs);
 
+  // One horn per gun. In a burst the key flips to each member as it fires, so the
+  // rising-edge horn logic sounds every class's gun on its own second.
   const takeoverKey = finishFlash
     ? "finish"
-    : flashing
-      ? `boat:${flashing.order}`
-      : signalFlashMs !== null
-        ? `sig:${signalFlashMs}`
-        : null;
+    : burst
+      ? `boat:${burst.justFired.order}`
+      : flashing
+        ? `boat:${flashing.order}`
+        : signalFlashMs !== null
+          ? `sig:${signalFlashMs}`
+          : null;
 
   return {
     phase,
@@ -211,6 +449,7 @@ export function deriveTimer(
     countdownMs: Math.max(0, countdownMs),
     activeMilestoneMs,
     flashing,
+    burst,
     signalFlashMs,
     finishFlash,
     takeoverKey,

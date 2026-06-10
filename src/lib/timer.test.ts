@@ -7,7 +7,16 @@ import {
   firstGunEpoch,
   GO_HOLD_MS,
   PRE_ROLL_MS,
+  RAPID_WINDOW_MS,
+  FLASH_MS,
+  rapidCluster,
+  IMMINENT_MS,
+  snapRaceTimeline,
+  syncedDisplayMsToFirstGun,
+  syncedDisplayMsToStart,
 } from "./timer";
+import { formatRaceStopwatch } from "./format";
+import { deriveStartCardState } from "@/components/StartCard";
 import { buildSchedule } from "./schedule";
 import type { BoatClass } from "./types";
 
@@ -46,6 +55,16 @@ describe("phase detection", () => {
     // 1:30 to go → 2-min signal segment
     const v2 = deriveTimer(c, schedule, 90_000);
     expect(v2.activeMilestoneMs).toBe(2 * 60_000);
+  });
+
+  it("GO sequence has no lead-in and enters race immediately", () => {
+    const c = armClock(GUN, "GO", 0);
+    expect(c.warningMs).toBe(0);
+    expect(firstGunEpoch(c)).toBe(GUN);
+    const v = deriveTimer(c, schedule, GUN);
+    expect(v.phase).toBe("race");
+    expect(v.flashing?.classes[0]?.name).toBe("Mirror");
+    expect(v.signalFlashMs).toBeNull();
   });
 
   it("10-5-4-1 sequence is a 10-minute lead-in with 10/5/4/1 milestones", () => {
@@ -167,6 +186,90 @@ describe("horn anticipation + takeover", () => {
   });
 });
 
+describe("rapid-start burst", () => {
+  // Anchor at the first gun, then three near-coincident starts 6s apart at
+  // +10:00 / +10:06 / +10:12 — a 3-member cluster well within RAPID_WINDOW.
+  const burstSchedule = buildSchedule(
+    [boat("Anchor", 1200), boat("Alpha", 1000), boat("Bravo", 998), boat("Charlie", 996)],
+    60,
+  )!;
+  const ALPHA = 600_000; // +10:00
+  const BRAVO = 606_000; // +10:06
+  const CHARLIE = 612_000; // +10:12
+
+  it("computed start times are untouched by burst handling", () => {
+    // Raw (unrounded) ms — burst is purely a view concern and never mutates them.
+    expect(burstSchedule.starts.map((s) => Math.round(s.startFromFirstGunMs))).toEqual([
+      0,
+      ALPHA,
+      BRAVO,
+      CHARLIE,
+    ]);
+    expect(RAPID_WINDOW_MS).toBeGreaterThanOrEqual(BRAVO - ALPHA);
+  });
+
+  it("collapses the near-coincident run into one burst, suppressing the single GO", () => {
+    const v = deriveTimer(clock, burstSchedule, GUN + ALPHA);
+    expect(v.flashing).toBeNull(); // the per-member flash replaces it
+    expect(v.burst).not.toBeNull();
+    expect(v.burst!.members.map((m) => m.order)).toEqual([2, 3, 4]); // Anchor (gun) excluded
+    expect(v.burst!.justFired.order).toBe(2);
+    expect(v.burst!.pulse).toBe(true);
+    expect(v.burst!.next?.order).toBe(3);
+    expect(v.burst!.afterNext?.order).toBe(4);
+    expect(v.burst!.msToNext).toBe(BRAVO - ALPHA);
+    expect(v.takeoverKey).toBe("boat:2"); // Alpha's own horn
+  });
+
+  it("flash is momentary, then a live countdown to the next horn", () => {
+    const v = deriveTimer(clock, burstSchedule, GUN + ALPHA + FLASH_MS);
+    expect(v.burst!.pulse).toBe(false);
+    expect(v.burst!.msToNext).toBe(BRAVO - ALPHA - FLASH_MS);
+  });
+
+  it("each member fires its own horn on its own second", () => {
+    const v = deriveTimer(clock, burstSchedule, GUN + BRAVO);
+    expect(v.burst!.justFired.order).toBe(3);
+    expect(v.burst!.pulse).toBe(true);
+    expect(v.takeoverKey).toBe("boat:3"); // key flipped → a fresh horn for Bravo
+    expect(v.burst!.next?.order).toBe(4);
+    expect(v.burst!.afterNext).toBeNull();
+  });
+
+  it("holds an 'all away' tail after the last member, then clears", () => {
+    const tail = deriveTimer(clock, burstSchedule, GUN + CHARLIE + 2_000);
+    expect(tail.burst!.justFired.order).toBe(4);
+    expect(tail.burst!.next).toBeNull();
+    expect(tail.burst!.msToNext).toBeNull();
+    expect(tail.burst!.pulse).toBe(false);
+
+    // One GO_HOLD past the last member, the cluster has cleared.
+    const cleared = deriveTimer(clock, burstSchedule, GUN + CHARLIE + GO_HOLD_MS + 1_000);
+    expect(cleared.burst).toBeNull();
+  });
+
+  it("bursts within the rapid window, but not beyond it", () => {
+    // ΔPY 3 → starts 9,000ms apart, comfortably inside RAPID_WINDOW.
+    const tight = buildSchedule(
+      [boat("Anchor", 1200), boat("T1", 1000), boat("T2", 997)],
+      60,
+    )!;
+    const atTight = deriveTimer(clock, tight, GUN + ALPHA);
+    expect(atTight.burst).not.toBeNull();
+    expect(atTight.burst!.members).toHaveLength(2);
+
+    // ΔPY 5 → 15,000ms apart (> window): independent single GOs, no burst.
+    const wide = buildSchedule(
+      [boat("Anchor", 1200), boat("W1", 1000), boat("W2", 995)],
+      60,
+    )!;
+    const atWide = deriveTimer(clock, wide, GUN + ALPHA);
+    expect(atWide.burst).toBeNull();
+    expect(atWide.flashing?.order).toBe(2);
+    expect(atWide.takeoverKey).toBe("boat:2");
+  });
+});
+
 describe("postponement (pause)", () => {
   it("shifts the first gun later by the paused duration", () => {
     let c = pauseClock(clock, GUN - 100_000); // pause with 100s of warning left
@@ -183,5 +286,69 @@ describe("postponement (pause)", () => {
     const b = deriveTimer(c, schedule, GUN - 10_000); // wall clock advanced
     expect(a.countdownMs).toBe(b.countdownMs); // frozen at pause instant
     expect(b.paused).toBe(true);
+  });
+});
+
+describe("rapidCluster", () => {
+  it("groups adjacent starts within the rapid window", () => {
+    const starts = buildSchedule(
+      [boat("A", 1200), boat("B", 1000), boat("C", 997)],
+      60,
+    )!.starts;
+    expect(rapidCluster(starts, starts[1]!)).toHaveLength(2);
+    expect(rapidCluster(starts, starts[0]!)).toHaveLength(1);
+  });
+});
+
+describe("deriveStartCardState", () => {
+  const three = buildSchedule(
+    [boat("A", 1200), boat("B", 1000), boat("C", 997)],
+    60,
+  )!;
+
+  it("gives each focused boat its own countdown and imminent threshold", () => {
+    const msSince = three.starts[1]!.startFromFirstGunMs - IMMINENT_MS; // B at 10s
+    const view = deriveTimer(clock, three, GUN + msSince);
+    const b = three.starts[1]!;
+    const c = three.starts[2]!;
+
+    const bState = deriveStartCardState(b, view, view.msSinceFirstGun, true);
+    const cState = deriveStartCardState(c, view, view.msSinceFirstGun, true);
+
+    expect(bState).toEqual({ kind: "countdown", imminent: true });
+    expect(cState).toEqual({ kind: "countdown", imminent: false });
+  });
+
+  it("shows imminent countdown in the queue when a boat enters its own window", () => {
+    const two = buildSchedule([boat("A", 1200), boat("B", 1100)], 60)!;
+    const view = deriveTimer(clock, two, GUN + two.starts[1]!.startFromFirstGunMs - 5_000);
+    const state = deriveStartCardState(two.starts[1]!, view, view.msSinceFirstGun, false);
+    expect(state).toEqual({ kind: "countdown", imminent: true });
+  });
+
+  it("ticks every card display on the same race-second boundary", () => {
+    const starts = three.starts;
+    const b = starts[1]!;
+    const c = starts[2]!;
+    const snap = 9_000;
+    const display = (ms: number) => ({
+      b: formatRaceStopwatch(syncedDisplayMsToStart(b.startFromFirstGunMs, ms)),
+      c: formatRaceStopwatch(syncedDisplayMsToStart(c.startFromFirstGunMs, ms)),
+    });
+    const atSnap = display(snap + 999);
+    const stillSnap = display(snap + 500);
+    const nextSnap = display(snap + 1000);
+    expect(atSnap).toEqual(stillSnap);
+    expect(nextSnap.b).not.toBe(atSnap.b);
+    expect(nextSnap.c).not.toBe(atSnap.c);
+    expect(snapRaceTimeline(snap + 1000)).toBe(snapRaceTimeline(snap) + 1000);
+  });
+
+  it("counts down to first gun on the same stopwatch grid", () => {
+    const msSince = -5_500;
+    const before = formatRaceStopwatch(syncedDisplayMsToFirstGun(msSince));
+    const after = formatRaceStopwatch(syncedDisplayMsToFirstGun(msSince + 1000));
+    expect(before).toBe("0:06");
+    expect(after).toBe("0:05");
   });
 });

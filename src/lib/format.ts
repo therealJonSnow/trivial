@@ -19,11 +19,22 @@ export function formatMmSs(ms: number): string {
  * Format a live countdown as `m:ss`. Uses ceil so the display reads "0:01"
  * through the final second and flips to "0:00" exactly at the event.
  * Negative inputs clamp to 0.
+ *
+ * Prefer `formatRaceStopwatch` with the snapped timer helpers in `timer.ts`
+ * so every on-screen readout shares one stopwatch grid.
  */
 export function formatCountdown(ms: number): string {
-  const totalSec = Math.max(0, Math.ceil(ms / MS_PER_SEC));
-  const m = Math.floor(totalSec / SEC_PER_MIN);
-  const s = totalSec % SEC_PER_MIN;
+  return formatCountdownSecs(Math.max(0, Math.ceil(ms / MS_PER_SEC)));
+}
+
+/** Canonical formatter for every race-timer readout (elapsed, countdowns, fin). */
+export const formatRaceStopwatch = formatMmSs;
+
+/** Format a whole-second countdown — use with `secsToHorn` so every card shares one tick. */
+export function formatCountdownSecs(totalSec: number): string {
+  const sec = Math.max(0, totalSec);
+  const m = Math.floor(sec / SEC_PER_MIN);
+  const s = sec % SEC_PER_MIN;
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 

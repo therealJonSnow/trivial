@@ -2,9 +2,18 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { classesByIds } from "@/lib/data";
-import { buildSchedule, startTime } from "@/lib/schedule";
-import { deriveTimer, firstGunEpoch, IMMINENT_MS } from "@/lib/timer";
-import { formatCountdown, formatMmSs, formatClock, ordinal } from "@/lib/format";
+import { buildSchedule } from "@/lib/schedule";
+import {
+  deriveTimer,
+  firstGunEpoch,
+  IMMINENT_MS,
+  rapidCluster,
+  syncedDisplayMsElapsed,
+  syncedDisplayMsToFinish,
+  syncedDisplayMsToFirstGun,
+  syncedDisplayMsToFirstSignal,
+} from "@/lib/timer";
+import { formatRaceStopwatch } from "@/lib/format";
 import { unlockAudio } from "@/lib/audio";
 import { useRace } from "@/store/useRaceStore";
 import { useNow } from "@/hooks/useNow";
@@ -12,7 +21,10 @@ import { useWakeLock } from "@/hooks/useWakeLock";
 import { useRaceAudio } from "@/hooks/useRaceAudio";
 import { useAudioKeepAlive } from "@/hooks/useAudioKeepAlive";
 import { HoldButton } from "./HoldButton";
+import { StartCard, deriveStartCardState } from "./StartCard";
 import { StartConfirm } from "./StartConfirm";
+import type { ScheduledStart } from "@/lib/types";
+import type { TimerView } from "@/lib/timer";
 
 function milestoneLabel(ms: number | null): string | null {
   if (ms === null || ms <= 0) return null;
@@ -48,6 +60,17 @@ interface TimerScreenProps {
   onOpenFleet: () => void;
 }
 
+/** Whether a start sits in the active rapid cluster (large card + live countdown). */
+function isInActiveCluster(
+  start: ScheduledStart,
+  view: TimerView,
+  starts: ScheduledStart[],
+): boolean {
+  const anchor = view.burst?.members[0] ?? view.flashing ?? view.nextStart;
+  if (!anchor) return false;
+  return rapidCluster(starts, anchor).some((s) => s.order === start.order);
+}
+
 export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
   const {
     clock,
@@ -69,6 +92,8 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
   // Top fade on the fleet queue — only once it's actually scrolled off its top,
   // so the base (unscrolled) state stays clean.
   const [queueScrolled, setQueueScrolled] = useState(false);
+  const [queueScrolledBottom, setQueueScrolledBottom] = useState(false);
+  const cardScrollRef = useRef<HTMLDivElement>(null);
   // Once the race has finished and its horn has been acknowledged, freeze the
   // per-frame tick and release the wake lock — nothing changes after this point.
   const [settled, setSettled] = useState(false);
@@ -96,41 +121,62 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
 
   // Only sound cues while actively counting; pausing/awaiting freezes them.
   const live = view !== null && !paused;
+  // Inside a burst the horns are seconds apart, so the −5..−1 count-in beeps
+  // would smear across them — suppress the beeps there (the on-screen countdown
+  // carries the anticipation); the per-member horns still fire via takeoverKey.
   useRaceAudio(
-    live ? view!.msToNextHorn : null,
+    live && view!.burst === null ? view!.msToNextHorn : null,
     live ? view!.takeoverKey : null,
     muted,
   );
 
+  const scrollTargetOrder =
+    view?.burst?.pulse && view.burst.next
+      ? view.burst.next.order
+      : view?.burst?.pulse
+        ? view.burst.justFired.order
+        : view?.nextStart?.order;
+
+  useEffect(() => {
+    if (view?.phase !== "race" || scrollTargetOrder === undefined) return;
+    const el = cardScrollRef.current?.querySelector(
+      `[data-start-order="${scrollTargetOrder}"]`,
+    );
+    el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [view?.phase, scrollTargetOrder, view?.startedOrders.length]);
+
   if (!clock || !schedule || !view) return null;
 
   const gun = firstGunEpoch(clock);
+  const msSinceFirstGun = view.msSinceFirstGun;
   const isFinishFlash = view.finishFlash;
-  const isGo = !isFinishFlash && view.flashing !== null;
-  const isSignal = !isFinishFlash && !isGo && view.signalFlashMs !== null;
-  const isTakeover = isGo || isSignal || isFinishFlash;
+  const isSignal = !isFinishFlash && view.signalFlashMs !== null;
+  const isFullBleed = isSignal || isFinishFlash;
   const isPreroll = view.phase === "preroll";
   const isWarning = view.phase === "warning";
+  const isRace = view.phase === "race";
   const isFinished = view.phase === "finished";
   const isImminent =
-    !isTakeover &&
+    !isFullBleed &&
     !isFinished &&
     view.msToNextHorn !== null &&
     view.msToNextHorn <= IMMINENT_MS;
 
-  // The full queue of not-yet-started classes — the list scrolls when it
-  // overflows so the whole fleet is reachable, not just the next few.
-  const upcoming = schedule.starts.filter(
-    (s) => !view.startedOrders.includes(s.order),
-  );
-
   const primaryColour = isImminent ? "text-imminent" : isWarning ? "text-ink" : "text-next";
   const strobe = isImminent && !paused ? "motion-safe:animate-strobe" : "";
+  const showCardList = (isRace || isPreroll || isWarning) && schedule.starts.length > 0;
+
+  const handleCardScroll = () => {
+    const el = cardScrollRef.current;
+    if (!el) return;
+    setQueueScrolled(el.scrollTop > 0);
+    setQueueScrolledBottom(el.scrollTop + el.clientHeight < el.scrollHeight - 8);
+  };
 
   return (
     <div
-      className={`mx-auto flex min-h-dvh max-w-md flex-col px-4 py-3 transition-colors duration-150 ${
-        isTakeover ? "bg-imminent" : "bg-ground"
+      className={`mx-auto flex h-dvh max-h-dvh max-w-md flex-col overflow-hidden px-4 py-3 transition-colors duration-150 ${
+        isFullBleed ? "bg-imminent" : "bg-ground"
       }`}
     >
       {/* master race clock + fleet entry + mute */}
@@ -140,7 +186,7 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
             type="button"
             onClick={onOpenFleet}
             className={`flex h-9 items-center rounded-lg border px-3 font-mono text-xs font-bold uppercase tracking-wider ${
-              isTakeover ? "border-ground/40 text-ground/80" : "border-signal text-signal"
+              isFullBleed ? "border-ground/40 text-ground/80" : "border-signal text-signal"
             }`}
           >
             + Class
@@ -151,7 +197,7 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
             aria-label={muted ? "Unmute alerts" : "Mute alerts"}
             aria-pressed={muted}
             className={`flex h-9 w-9 items-center justify-center rounded-lg border ${
-              isTakeover
+              isFullBleed
                 ? "border-ground/40 text-ground/80"
                 : muted
                   ? "border-imminent/60 text-imminent/60"
@@ -163,7 +209,7 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
         </div>
         <span
           className={`min-w-0 truncate text-center font-mono text-xs uppercase tracking-wider ${
-            isTakeover ? "text-ground/70" : "text-muted"
+            isFullBleed ? "text-ground/70" : "text-muted"
           }`}
         >
           {awaitingStart
@@ -177,77 +223,89 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
                   : isFinished
                     ? "Finished"
                     : "Racing"}
-          {view.phase === "race" && ` · ${formatMmSs(Math.max(0, view.msSinceFirstGun))}`}
+          {view.phase === "race" &&
+            ` · ${formatRaceStopwatch(syncedDisplayMsElapsed(msSinceFirstGun))}`}
         </span>
         <span
           className={`shrink-0 font-mono text-xs uppercase tracking-wider ${
-            isTakeover ? "text-ground/70" : "text-muted"
+            isFullBleed ? "text-ground/70" : "text-muted"
           }`}
         >
-          fin {formatMmSs(view.toFinishMs)}
+          fin{" "}
+          {formatRaceStopwatch(
+            syncedDisplayMsToFinish(schedule.finishFromFirstGunMs, msSinceFirstGun),
+          )}
         </span>
       </div>
 
-      {/* primary display */}
-      <div className="flex flex-1 flex-col items-center justify-center text-center">
-        {isGo ? (
-          <>
-            <div className="font-mono text-clock font-black leading-none text-ground">
-              GO
-            </div>
-            <div className="mt-2 max-w-full truncate px-2 text-2xl font-bold text-ground">
-              {view.flashing!.classes.map((c) => c.name).join(" + ")}
-            </div>
-            <div className="mt-1 text-sm font-semibold uppercase tracking-[0.3em] text-ground/70">
-              Sound the horn
-            </div>
-          </>
-        ) : isSignal ? (
-          <>
-            <div className="text-sm font-bold uppercase tracking-[0.4em] text-ground/70">
-              Signal
-            </div>
-            <div className="mt-1 font-mono text-clock font-black leading-none tabular-nums text-ground">
-              {formatMmSs(view.signalFlashMs!)}
-            </div>
-            <div className="mt-1 text-sm font-semibold uppercase tracking-[0.3em] text-ground/70">
-              Sound the horn
-            </div>
-          </>
-        ) : isFinishFlash ? (
-          <>
-            <div className="font-mono text-clock font-black leading-none text-ground">
-              FINISH
-            </div>
-            <div className="mt-2 text-2xl font-bold text-ground">Race complete</div>
-            <div className="mt-1 text-sm font-semibold uppercase tracking-[0.3em] text-ground/70">
-              Sound the horn
-            </div>
-          </>
-        ) : isFinished ? (
-          <>
-            <div className="font-mono text-clock-sm font-black text-started">FINISH</div>
-            <div className="mt-2 text-sm uppercase tracking-widest text-muted">
-              Race complete
-            </div>
-          </>
-        ) : isPreroll ? (
-          <>
+      {/* primary display — hero timers + full-height scrolling start cards */}
+      <div
+        className={`flex min-h-0 flex-1 flex-col overflow-hidden ${
+          isRace ? "pt-3" : showCardList ? "gap-3 pt-2" : "items-center justify-center text-center"
+        }`}
+      >
+        {(isSignal || isFinishFlash || (isFinished && !isFinishFlash)) && (
+          <div className="flex flex-1 flex-col items-center justify-center text-center">
+            {isSignal ? (
+              <>
+                <div className="text-sm font-bold uppercase tracking-[0.4em] text-ground/70">
+                  Signal
+                </div>
+                <div className="mt-1 font-mono text-clock font-black leading-none tabular-nums text-ground">
+                  {formatRaceStopwatch(view.signalFlashMs!)}
+                </div>
+                <div className="mt-1 text-sm font-semibold uppercase tracking-[0.3em] text-ground/70">
+                  Sound the horn
+                </div>
+              </>
+            ) : isFinishFlash ? (
+              <>
+                <div className="font-mono text-clock font-black leading-none text-ground">
+                  FINISH
+                </div>
+                <div className="mt-2 text-2xl font-bold text-ground">Race complete</div>
+                <div className="mt-1 text-sm font-semibold uppercase tracking-[0.3em] text-ground/70">
+                  Sound the horn
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="font-mono text-clock-sm font-black text-started">FINISH</div>
+                <div className="mt-2 text-sm uppercase tracking-widest text-muted">
+                  Race complete
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {isPreroll ? (
+          <div className="shrink-0 text-center">
             <div className="mb-3 text-sm font-bold uppercase tracking-[0.4em] text-imminent">
               Get ready
             </div>
             <div
               className={`font-mono text-clock font-black leading-none tabular-nums text-imminent ${strobe}`}
             >
-              {formatCountdown(view.countdownMs)}
+              {formatRaceStopwatch(
+                syncedDisplayMsToFirstSignal(msSinceFirstGun, clock.warningMs),
+              )}
             </div>
-            <div className="mt-2 text-xl uppercase tracking-widest text-muted">
-              to first signal
+            <div className="mt-2 max-w-full truncate px-2 text-xl">
+              <span className="uppercase tracking-widest text-muted">to first signal</span>
+              {schedule.starts[0] && (
+                <>
+                  <span className="text-muted"> · </span>
+                  <span className="text-ink">
+                    {schedule.starts[0].classes.map((c) => c.name).join(" + ")}
+                  </span>
+                </>
+              )}
             </div>
-          </>
-        ) : (
-          <>
-            {isWarning && milestoneLabel(view.activeMilestoneMs) && (
+          </div>
+        ) : isWarning ? (
+          <div className="shrink-0 text-center">
+            {milestoneLabel(view.activeMilestoneMs) && (
               <div className="mb-3 animate-pulse rounded-full border-2 border-imminent px-4 py-1 text-base font-bold uppercase tracking-[0.2em] text-imminent">
                 {milestoneLabel(view.activeMilestoneMs)} flag raised
               </div>
@@ -257,84 +315,73 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
                 paused ? "opacity-40" : ""
               }`}
             >
-              {formatCountdown(view.countdownMs)}
+              {formatRaceStopwatch(syncedDisplayMsToFirstGun(msSinceFirstGun))}
             </div>
-            <div className="mt-2 max-w-full truncate px-2 text-xl">
-              {isWarning ? (
-                <span className="uppercase tracking-widest text-muted">to first gun</span>
-              ) : view.nextStart ? (
-                <span className={isImminent ? "text-imminent" : "text-ink"}>
-                  next&nbsp;·&nbsp;
-                  {view.nextStart.classes.map((c) => c.name).join(" + ")}
-                </span>
-              ) : (
-                <span className="uppercase tracking-widest text-muted">all started</span>
-              )}
+            <div className="mt-2 max-w-full truncate px-2 text-xl uppercase tracking-widest text-muted">
+              to first gun
             </div>
-          </>
+          </div>
+        ) : null}
+
+        {showCardList && (
+          <div className="relative min-h-0 flex-1 overflow-hidden">
+            <div
+              ref={cardScrollRef}
+              className="flex h-full flex-col gap-2 overflow-y-auto overscroll-contain py-1 pr-0.5"
+              onScroll={handleCardScroll}
+            >
+              {schedule.starts.map((s) => {
+                const inFocus =
+                  isInActiveCluster(s, view, schedule.starts) ||
+                  view.nextStart?.order === s.order;
+                const state = deriveStartCardState(s, view, msSinceFirstGun, inFocus);
+                const large =
+                  state.kind !== "away" &&
+                  (state.kind === "go" || inFocus || state.kind === "countdown");
+                return (
+                  <div key={s.order} data-start-order={s.order}>
+                    <StartCard
+                      start={s}
+                      state={state}
+                      msSinceFirstGun={msSinceFirstGun}
+                      gunEpoch={gun}
+                      isNext={view.nextStart?.order === s.order}
+                      large={large}
+                      paused={paused}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <div
+              aria-hidden
+              className={`pointer-events-none absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-ground to-transparent transition-opacity duration-200 ${
+                queueScrolled ? "opacity-100" : "opacity-0"
+              }`}
+            />
+            <div
+              aria-hidden
+              className={`pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-ground to-transparent transition-opacity duration-200 ${
+                queueScrolledBottom ? "opacity-100" : "opacity-0"
+              }`}
+            />
+          </div>
         )}
       </div>
 
-      {/* upcoming queue — zebra-striped table; scrolls when the fleet overflows */}
-      {!isTakeover && upcoming.length > 0 && (
-        <div className="relative mb-3 overflow-hidden rounded-lg">
-          <ul
-            className="max-h-44 overflow-y-auto"
-            onScroll={(e) => setQueueScrolled(e.currentTarget.scrollTop > 0)}
-          >
-            {(() => {
-              // Stripe parity counts only the non-active rows, so the pattern is
-              // always signal → no-bg → zebra → … and stays stable as started
-              // boats drop off the top of the queue.
-              let stripe = -1;
-              return upcoming.map((s) => {
-                const isNext = view.nextStart?.order === s.order;
-                if (!isNext) stripe += 1;
-                const tone = isNext
-                  ? "bg-signal"
-                  : stripe % 2 === 1
-                    ? "bg-panel"
-                    : "";
-                const meta = isNext ? "text-black/70" : "text-muted";
-                return (
-                  <li
-                    key={s.order}
-                    className={`flex items-center gap-3 px-3 py-2.5 ${tone}`}
-                  >
-                    <span className={`w-8 shrink-0 font-mono text-xs tabular-nums ${meta}`}>
-                      {ordinal(s.order)}
-                    </span>
-                    <span
-                      className={`min-w-0 flex-1 truncate text-sm ${
-                        isNext ? "font-semibold text-black" : "text-ink"
-                      }`}
-                    >
-                      {s.classes.map((c) => c.name).join(" + ")}
-                    </span>
-                    <span className={`shrink-0 font-mono text-xs tabular-nums ${meta}`}>
-                      {formatClock(startTime(s, gun))}
-                    </span>
-                  </li>
-                );
-              });
-            })()}
-          </ul>
-          {/* Fade the top edge once scrolled, signalling more fleet above. */}
-          <div
-            aria-hidden
-            className={`pointer-events-none absolute inset-x-0 top-0 h-7 bg-gradient-to-b from-ground to-transparent transition-opacity duration-200 ${
-              queueScrolled ? "opacity-100" : "opacity-0"
-            }`}
-          />
-        </div>
-      )}
-
       {/* controls */}
-      <div className="space-y-2">
+      <div className="shrink-0 space-y-2 pt-2 pb-[max(0px,env(safe-area-inset-bottom))]">
         {awaitingStart ? (
           <button
             type="button"
-            onClick={() => setConfirming(true)}
+            onClick={() => {
+              if (startSequence === "GO") {
+                unlockAudio();
+                start();
+              } else {
+                setConfirming(true);
+              }
+            }}
             className="h-16 w-full rounded-2xl bg-imminent text-xl font-bold uppercase tracking-wider text-ground"
           >
             Start sequence

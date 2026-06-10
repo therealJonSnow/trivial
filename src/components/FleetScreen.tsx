@@ -3,8 +3,13 @@
 import { useMemo, useState } from "react";
 import { resolveClasses } from "@/lib/data";
 import { buildSchedule, computeStartFromFirstGunMs } from "@/lib/schedule";
-import { deriveTimer, firstGunEpoch } from "@/lib/timer";
-import { formatCountdown, formatMmSs } from "@/lib/format";
+import {
+  deriveTimer,
+  firstGunEpoch,
+  syncedDisplayMsToFinish,
+  syncedHeroCountdownMs,
+} from "@/lib/timer";
+import { formatRaceStopwatch } from "@/lib/format";
 import { useCustomClasses, useFavourites, useRace } from "@/store/useRaceStore";
 import { useNow } from "@/hooks/useNow";
 import { ScheduleList } from "./ScheduleList";
@@ -102,7 +107,11 @@ export function FleetScreen({ onBack }: FleetScreenProps) {
           <span
             className={`font-mono text-lg tabular-nums ${view.flashing ? "text-imminent" : "text-next"}`}
           >
-            {view.flashing ? "GO" : formatCountdown(view.countdownMs)}
+            {view.flashing
+              ? "GO"
+              : formatRaceStopwatch(
+                  syncedHeroCountdownMs(view, clock!, schedule!.finishFromFirstGunMs),
+                )}
           </span>
         </div>
       )}
@@ -110,7 +119,12 @@ export function FleetScreen({ onBack }: FleetScreenProps) {
       {schedule && (
         <section className="mb-4 rounded-xl bg-panel p-3">
           <h2 className="mb-1 text-xs uppercase tracking-wider text-muted">
-            Start schedule · finish {view ? formatMmSs(view.toFinishMs) : "—"}
+            Start schedule · finish{" "}
+            {view && clock
+              ? formatRaceStopwatch(
+                  syncedDisplayMsToFinish(schedule.finishFromFirstGunMs, view.msSinceFirstGun),
+                )
+              : "—"}
           </h2>
           <ScheduleList schedule={schedule} view={view ?? undefined} firstGunEpoch={gun} />
         </section>

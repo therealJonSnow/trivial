@@ -14,9 +14,9 @@ import {
   resolveDurationMinutes,
 } from "@/store/useRaceStore";
 import {
-  PRE_ROLL_MS,
   SEQUENCES,
   START_SEQUENCE_OPTIONS,
+  preRollForSequence,
   type StartSequence,
 } from "@/lib/timer";
 import { DurationCard } from "./DurationCard";
@@ -86,7 +86,7 @@ export function SetupScreen() {
     nowTs !== null && schedule
       ? new Date(
           nowTs +
-            PRE_ROLL_MS +
+            preRollForSequence(startSequence) +
             SEQUENCES[startSequence].warningMs +
             effectiveDuration * 60_000,
         )
@@ -267,10 +267,17 @@ export function SetupScreen() {
         <button
           type="button"
           disabled={count === 0}
-          onClick={() => setConfirming(true)}
+          onClick={() => {
+            if (startSequence === "GO") {
+              unlockAudio();
+              start();
+            } else {
+              setConfirming(true);
+            }
+          }}
           className="h-16 w-full rounded-2xl bg-imminent font-display text-2xl font-bold uppercase tracking-[0.16em] text-ground transition-opacity active:opacity-90 disabled:bg-line disabled:text-muted"
         >
-          Start Race
+          Continue
         </button>
       </div>
 
