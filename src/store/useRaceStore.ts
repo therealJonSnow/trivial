@@ -147,7 +147,7 @@ export const useRace = create<RaceState>()(
       durationMode: "fixed",
       referenceClassId: DEFAULT_REFERENCE_CLASS_ID,
       referenceMinutes: 45,
-      startSequence: "5-4-1",
+      startSequence: "10-5-4-1",
       muted: false,
       clock: null,
       frame: null,

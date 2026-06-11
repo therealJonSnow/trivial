@@ -56,17 +56,13 @@ export const PRE_ROLL_MS = 10_000;
  *   "10-5-4-1": signals at 10:00 / 5:00 / 4:00 / 1:00 / GO
  *   "5-4-1":    signals at 5:00 / 4:00 / 1:00 / GO
  *   "3-2-1":    signals at 3:00 / 2:00 / 1:00 / GO
- *   "10s":      plain 10-second countdown to GO (quick dress rehearsal)
- *   "GO":       no signals — first gun fires immediately (testing shortcut).
  */
-export type StartSequence = "10-5-4-1" | "5-4-1" | "3-2-1" | "10s" | "GO";
+export type StartSequence = "10-5-4-1" | "5-4-1" | "3-2-1";
 
 export const START_SEQUENCE_OPTIONS: readonly StartSequence[] = [
   "10-5-4-1",
   "5-4-1",
   "3-2-1",
-  "10s",
-  "GO",
 ];
 
 export const SEQUENCES: Record<
@@ -79,13 +75,11 @@ export const SEQUENCES: Record<
   },
   "5-4-1": { warningMs: 5 * 60_000, milestonesMs: [5 * 60_000, 4 * 60_000, 60_000, 0] },
   "3-2-1": { warningMs: 3 * 60_000, milestonesMs: [3 * 60_000, 2 * 60_000, 60_000, 0] },
-  "10s": { warningMs: 10_000, milestonesMs: [0] },
-  GO: { warningMs: 0, milestonesMs: [0] },
 };
 
-/** Count-in before the first signal; zero for the instant GO test sequence. */
-export function preRollForSequence(sequence: StartSequence): number {
-  return sequence === "GO" || sequence === "10s" ? 0 : PRE_ROLL_MS;
+/** Count-in before the first signal. */
+export function preRollForSequence(_sequence: StartSequence): number {
+  return PRE_ROLL_MS;
 }
 
 /** The first sequence flag signal before the gun (e.g. 5:00 on a 5-4-1). */

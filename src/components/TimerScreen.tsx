@@ -172,7 +172,7 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
   };
 
   return (
-    <div className="mx-auto flex h-dvh max-h-dvh max-w-md flex-col overflow-hidden bg-ground px-4 py-3">
+    <div className="mx-auto flex h-dvh max-h-dvh max-w-md flex-col overflow-hidden instrument-bg px-4 py-3">
       {/* master race clock + fleet entry + mute */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex shrink-0 items-center gap-2">
@@ -320,12 +320,7 @@ export function TimerScreen({ onOpenFleet }: TimerScreenProps) {
           <button
             type="button"
             onClick={() => {
-              if (startSequence === "GO") {
-                unlockAudio();
-                start();
-              } else {
-                setConfirming(true);
-              }
+              setConfirming(true);
             }}
             className="h-16 w-full rounded-2xl bg-imminent text-xl font-bold uppercase tracking-wider text-ground"
           >

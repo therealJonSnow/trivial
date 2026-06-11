@@ -59,31 +59,6 @@ describe("phase detection", () => {
     expect(v2.activeMilestoneMs).toBe(2 * 60_000);
   });
 
-  it("GO sequence has no lead-in and enters race immediately", () => {
-    const c = armClock(GUN, "GO", 0);
-    expect(c.warningMs).toBe(0);
-    expect(firstGunEpoch(c)).toBe(GUN);
-    const v = deriveTimer(c, schedule, GUN);
-    expect(v.phase).toBe("race");
-    expect(v.flashing?.classes[0]?.name).toBe("Mirror");
-    expect(v.signalFlashMs).toBeNull();
-  });
-
-  it("10s sequence is a plain 10-second countdown with no warning signals", () => {
-    const c = armClock(GUN - 10_000, "10s", 0);
-    expect(c.warningMs).toBe(10_000);
-    expect(c.preRollMs).toBe(0);
-    expect(firstGunEpoch(c)).toBe(GUN);
-    const v = deriveTimer(c, schedule, GUN - 10_000);
-    expect(v.phase).toBe("warning");
-    expect(v.countdownMs).toBe(10_000);
-    expect(v.signalFlashMs).toBeNull();
-    expect(v.msToNextHorn).toBe(10_000);
-    const v2 = deriveTimer(c, schedule, GUN);
-    expect(v2.phase).toBe("race");
-    expect(v2.flashing?.classes[0]?.name).toBe("Mirror");
-  });
-
   it("10-5-4-1 sequence is a 10-minute lead-in with 10/5/4/1 milestones", () => {
     const c = armClock(0, "10-5-4-1");
     expect(c.warningMs).toBe(10 * 60_000);

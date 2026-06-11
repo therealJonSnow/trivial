@@ -14,8 +14,6 @@ const FIRST_SIGNAL: Record<StartSequence, string> = {
   "10-5-4-1": "10:00",
   "5-4-1": "5:00",
   "3-2-1": "3:00",
-  "10s": "0:10",
-  GO: "GO",
 };
 
 /**
@@ -24,9 +22,6 @@ const FIRST_SIGNAL: Record<StartSequence, string> = {
  * its button tap is the user gesture that unlocks audio for the whole race.
  */
 export function StartConfirm({ sequence, onConfirm, onCancel }: StartConfirmProps) {
-  const instant = sequence === "GO";
-  const short = sequence === "10s";
-
   return (
     <div className="animate-pop-in instrument-bg fixed inset-0 z-50 flex flex-col items-center justify-center px-6 text-center">
       <div className="font-display text-sm font-bold uppercase tracking-[0.4em] text-imminent">
@@ -34,34 +29,14 @@ export function StartConfirm({ sequence, onConfirm, onCancel }: StartConfirmProp
       </div>
       <div className="flag-strip mt-4 w-32" />
       <p className="mt-5 max-w-xs text-lg text-ink">
-        {instant ? (
-          <>
-            The first gun fires{" "}
-            <span className="font-mono font-bold tabular-nums text-imminent">immediately</span> —
-            no count-in or warning signals.
-          </>
-        ) : short ? (
-          <>
-            A plain{" "}
-            <span className="font-mono font-bold tabular-nums text-imminent">10-second</span>{" "}
-            countdown to the first gun — no warning signals.
-          </>
-        ) : (
-          <>
-            This begins a 10-second count-in to the first signal{" "}
-            <span className="font-mono font-bold tabular-nums text-imminent">
-              ({FIRST_SIGNAL[sequence]})
-            </span>
-            .
-          </>
-        )}
+        This begins a 10-second count-in to the first signal{" "}
+        <span className="font-mono font-bold tabular-nums text-imminent">
+          ({FIRST_SIGNAL[sequence]})
+        </span>
+        .
       </p>
       <p className="mt-2 max-w-xs text-sm text-muted">
-        {instant
-          ? "Testing shortcut — ready the horn for the first start."
-          : short
-            ? "Quick test run — ready the horn for GO."
-            : "Ready the horn and flag — beeps will count you in."}
+        Ready the horn and flag — beeps will count you in.
       </p>
       <button
         type="button"

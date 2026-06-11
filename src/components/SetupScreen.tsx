@@ -268,12 +268,7 @@ export function SetupScreen() {
           type="button"
           disabled={count === 0}
           onClick={() => {
-            if (startSequence === "GO") {
-              unlockAudio();
-              start();
-            } else {
-              setConfirming(true);
-            }
+            setConfirming(true);
           }}
           className="h-16 w-full rounded-2xl bg-imminent font-display text-2xl font-bold uppercase tracking-[0.16em] text-ground transition-opacity active:opacity-90 disabled:bg-line disabled:text-muted"
         >
