@@ -7,6 +7,7 @@ import {
   type RaceClock,
   type StartSequence,
   preRollForSequence,
+  START_SEQUENCE_OPTIONS,
 } from "@/lib/timer";
 import { buildSchedule, frameFromSchedule, deriveDurationMinutes } from "@/lib/schedule";
 import { resolveClasses, DEFAULT_REFERENCE_CLASS_ID } from "@/lib/data";
@@ -240,6 +241,15 @@ export const useRace = create<RaceState>()(
         startSequence: s.startSequence,
         muted: s.muted,
       }),
+      // Coerce any stale persisted sequence (e.g. removed "GO"/"10s") back to a
+      // valid one so SEQUENCES[startSequence] never reads undefined and crashes.
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<RaceState>;
+        const startSequence = START_SEQUENCE_OPTIONS.includes(p.startSequence as StartSequence)
+          ? (p.startSequence as StartSequence)
+          : current.startSequence;
+        return { ...current, ...p, startSequence };
+      },
     },
   ),
 );
